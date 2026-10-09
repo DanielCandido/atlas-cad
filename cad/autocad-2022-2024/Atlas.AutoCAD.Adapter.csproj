@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Atlas.AutoCAD.Adapter.2022</AssemblyName>
+    <RootNamespace>Atlas.AutoCAD.Adapter</RootNamespace>
+    <AutodeskAutoCADRoot Condition="'$(AutodeskAutoCADRoot)' == ''">$(AUTOCAD_2022_ROOT)</AutodeskAutoCADRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../atlas-core/**/*.cs"
+             Exclude="../atlas-core/bin/**;../atlas-core/obj/**"
+             Link="Core/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../autocad-shared/**/*.cs" Link="Shared/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Reference Include="AcMgd">
+      <HintPath>$(AutodeskAutoCADRoot)/acmgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="AcDbMgd">
+      <HintPath>$(AutodeskAutoCADRoot)/acdbmgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="AcCoreMgd">
+      <HintPath>$(AutodeskAutoCADRoot)/accoremgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateAutodeskReferences" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(AutodeskAutoCADRoot)' == ''"
+           Text="Set AutodeskAutoCADRoot or AUTOCAD_2022_ROOT to the AutoCAD 2022 installation directory." />
+    <Error Condition="!Exists('$(AutodeskAutoCADRoot)/acmgd.dll') Or !Exists('$(AutodeskAutoCADRoot)/acdbmgd.dll') Or !Exists('$(AutodeskAutoCADRoot)/accoremgd.dll')"
+           Text="AutoCAD managed assemblies were not found under '$(AutodeskAutoCADRoot)'." />
+  </Target>
+</Project>

@@ -1,0 +1,26 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify private CAD assets are not tracked
+        shell: pwsh
+        run: ./scripts/verify-private-assets.ps1
+      - run: dotnet test tests/Atlas.Core.Tests/Atlas.Core.Tests.csproj
+      - run: dotnet build packages/catalog-builder/Atlas.CatalogBuilder.csproj
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+        working-directory: apps/web
+      - run: npm run build
+        working-directory: apps/web

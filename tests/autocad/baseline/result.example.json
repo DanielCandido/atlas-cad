@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "autocad": {
+    "year": 2026,
+    "product": "AutoCAD",
+    "version": "preencher",
+    "licensed": true
+  },
+  "caseId": "line-wcs",
+  "source": {
+    "type": "LINE",
+    "layer": "preencher",
+    "handleBefore": "preencher",
+    "existsAfter": false
+  },
+  "mline": {
+    "created": true,
+    "handle": "preencher",
+    "style": "preencher",
+    "scale": null,
+    "justification": "preencher",
+    "normal": [0.0, 0.0, 1.0]
+  },
+  "ucs": {
+    "name": "World",
+    "originWcs": [0.0, 0.0, 0.0]
+  },
+  "layerRestored": true,
+  "undoRestoredOriginal": true,
+  "result": "pass",
+  "notes": ""
+}

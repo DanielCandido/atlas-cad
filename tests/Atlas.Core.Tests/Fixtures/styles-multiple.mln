@@ -1,0 +1,56 @@
+MLSTYLE
+2
+ ATLAS_GOLDEN_A
+70
+ 0
+3
+ First public synthetic style
+62
+ 256
+51
+ 90
+52
+ 90
+71
+ 1
+49
+ 0
+62
+ 256
+6
+ BYLAYER
+0
+MLSTYLE
+2
+ ATLAS_GOLDEN_B
+70
+ 272
+3
+ Second public synthetic style
+62
+ 5
+51
+ 60
+52
+ 120
+71
+ 3
+49
+ 12.5
+62
+ 1
+6
+ CONTINUOUS
+49
+ 0
+62
+ 2
+6
+ CENTER
+49
+ -12.5
+62
+ 3
+6
+ HIDDEN
+0
