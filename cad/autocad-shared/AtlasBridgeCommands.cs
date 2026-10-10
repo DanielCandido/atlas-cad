@@ -2,6 +2,8 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Text;
 using Atlas.Cad.Core.Bridge;
 using Atlas.Cad.Core.Styles;
 using Autodesk.AutoCAD.ApplicationServices;
@@ -24,6 +26,7 @@ public sealed class AtlasBridgeCommands
     private const string SourceTagPrefix = "source:";
     private readonly SecureBridgeFileStore _store = new SecureBridgeFileStore();
     private readonly SecureCatalogStore _catalogStore = new SecureCatalogStore();
+    private readonly AtlasLicenseService _license = new AtlasLicenseService();
 
     [LispFunction("ATLAS_NEW_REQUEST_ID")]
     public ResultBuffer NewRequestId(ResultBuffer arguments) =>
@@ -33,16 +36,32 @@ public sealed class AtlasBridgeCommands
     public ResultBuffer BridgeRoot(ResultBuffer arguments) =>
         LispText(_store.EnsureRoot());
 
+    [LispFunction("ATLAS_ACTIVE_DRAWING_IDENTITY")]
+    public ResultBuffer ActiveDrawingIdentity(ResultBuffer arguments)
+    {
+        var document = AcApplication.DocumentManager.MdiActiveDocument;
+        var identity = string.IsNullOrWhiteSpace(document.Database.Filename)
+            ? document.Name
+            : document.Database.Filename;
+        return LispText(identity);
+    }
+
     [LispFunction("ATLAS_CATALOG_STYLE_NAMES")]
     public ResultBuffer CatalogStyleNames(ResultBuffer arguments)
     {
         try
         {
-            var styles = _catalogStore.Read();
+            var styles = ReadProtectedCatalog();
             var values = new List<TypedValue>(styles.Count);
             foreach (var style in styles)
                 values.Add(new TypedValue((int)LispDataType.Text, style.Name));
             return new ResultBuffer(values.ToArray());
+        }
+        catch (LicenseOperationException exception)
+        {
+            AcApplication.DocumentManager.MdiActiveDocument.Editor.WriteMessage(
+                $"\n[ATLAS] License unavailable ({exception.Code}).");
+            return new ResultBuffer(new TypedValue((int)LispDataType.Nil));
         }
         catch (BridgeCommandException exception)
         {
@@ -52,16 +71,128 @@ public sealed class AtlasBridgeCommands
         }
     }
 
+    [LispFunction("ATLAS_LICENSE_STATUS_CODE")]
+    public ResultBuffer LicenseStatusCode(ResultBuffer arguments) => LispText(_license.StatusCode());
+
+    [CommandMethod("ATLAS_LICENSE_STATUS", CommandFlags.Modal)]
+    public void LicenseStatus()
+    {
+        var editor = AcApplication.DocumentManager.MdiActiveDocument.Editor;
+        try
+        {
+            var claims = _license.RequireValid();
+            var expires = DateTimeOffset.FromUnixTimeSeconds(claims.ExpiresAtUnix).ToLocalTime();
+            editor.WriteMessage($"\n[ATLAS] License valid through {expires:yyyy-MM-dd HH:mm zzz}. Activation: {claims.ActivationId}.");
+        }
+        catch (LicenseOperationException exception)
+        {
+            editor.WriteMessage($"\n[ATLAS] License invalid ({exception.Code}).");
+        }
+    }
+
+    [CommandMethod("ATLAS_LICENSE_ACTIVATE", CommandFlags.Modal)]
+    public void ActivateLicense()
+    {
+        var editor = AcApplication.DocumentManager.MdiActiveDocument.Editor;
+        var prompt = editor.GetString(new PromptStringOptions("\nATLAS activation code: ") { AllowSpaces = false });
+        if (prompt.Status != PromptStatus.OK) return;
+        try
+        {
+            var claims = _license.Activate(prompt.StringResult ?? string.Empty);
+            var expires = DateTimeOffset.FromUnixTimeSeconds(claims.ExpiresAtUnix).ToLocalTime();
+            editor.WriteMessage($"\n[ATLAS] License activated. Offline entitlement valid through {expires:yyyy-MM-dd HH:mm zzz}.");
+        }
+        catch (LicenseOperationException exception)
+        {
+            editor.WriteMessage($"\n[ATLAS] Activation failed ({exception.Code}).");
+        }
+        catch (System.Exception)
+        {
+            editor.WriteMessage("\n[ATLAS] Activation failed (license_server_unavailable).");
+        }
+    }
+
+    [CommandMethod("ATLAS_LICENSE_RENEW", CommandFlags.Modal)]
+    public void RenewLicense()
+    {
+        var editor = AcApplication.DocumentManager.MdiActiveDocument.Editor;
+        try
+        {
+            var claims = _license.Renew();
+            var expires = DateTimeOffset.FromUnixTimeSeconds(claims.ExpiresAtUnix).ToLocalTime();
+            editor.WriteMessage($"\n[ATLAS] License renewed through {expires:yyyy-MM-dd HH:mm zzz}.");
+        }
+        catch (LicenseOperationException exception)
+        {
+            editor.WriteMessage($"\n[ATLAS] Renewal failed ({exception.Code}).");
+        }
+        catch (System.Exception)
+        {
+            editor.WriteMessage("\n[ATLAS] Renewal failed (license_server_unavailable).");
+        }
+    }
+
+    [CommandMethod("ATLAS_DIAGNOSTICS", CommandFlags.Modal)]
+    public void Diagnostics()
+    {
+        var editor = AcApplication.DocumentManager.MdiActiveDocument.Editor;
+        try
+        {
+            var assembly = typeof(AtlasBridgeCommands).Assembly;
+            var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? assembly.GetName().Version?.ToString() ?? "unknown";
+            string catalog;
+            try
+            {
+                var header = _catalogStore.Inspect();
+                catalog = $"installed; version={header.CatalogVersion}; keyId={header.KeyId}; algorithm={header.Algorithm}";
+            }
+            catch (BridgeCommandException exception) { catalog = "unavailable; code=" + exception.Code; }
+
+            var lines = new[]
+            {
+                "ATLAS CAD diagnostics",
+                "generatedUtc=" + DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                "pluginVersion=" + version,
+                "adapterAssembly=" + assembly.GetName().Name,
+                "dotnetRuntime=" + Environment.Version,
+                "operatingSystem=" + Environment.OSVersion.VersionString,
+                "autoCadVersion=" + Convert.ToString(AcApplication.GetSystemVariable("ACADVER"), CultureInfo.InvariantCulture),
+                "licenseStatus=" + _license.StatusCode(),
+                "catalogStatus=" + catalog,
+                "note=no tokens, keys, activation identifiers, drawing paths or geometry are collected"
+            };
+            var directory = Directory.CreateDirectory(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AtlasCad", "diagnostics"));
+            SecureBridgeFileStore.RestrictToCurrentUser(directory);
+            var path = Path.Combine(directory.FullName, "atlas-diagnostics.txt");
+            var temporary = path + ".tmp";
+            File.WriteAllText(temporary, string.Join(Environment.NewLine, lines) + Environment.NewLine, new UTF8Encoding(false));
+#if NETFRAMEWORK
+            if (File.Exists(path)) File.Delete(path);
+            File.Move(temporary, path);
+#else
+            File.Move(temporary, path, true);
+#endif
+            editor.WriteMessage($"\n[ATLAS] Diagnostics: license={_license.StatusCode()}; catalog={catalog}.");
+            editor.WriteMessage($"\n[ATLAS] Sanitized report written to: {path}");
+        }
+        catch (System.Exception)
+        {
+            editor.WriteMessage("\n[ATLAS] Diagnostics failed (unexpected_error).");
+        }
+    }
+
     [CommandMethod("ATLAS_INSTALL_CATALOG", CommandFlags.Modal)]
     public void InstallCatalog()
     {
         var editor = AcApplication.DocumentManager.MdiActiveDocument.Editor;
         var assemblyDirectory = Path.GetDirectoryName(typeof(AtlasBridgeCommands).Assembly.Location) ?? string.Empty;
-        var sourcePath = Path.Combine(assemblyDirectory, "steel.resolved.atlascatalog.json");
+        var sourcePath = Path.Combine(assemblyDirectory, "steel.atlascatalog");
         if (!File.Exists(sourcePath))
         {
             var prompt = editor.GetString(new PromptStringOptions(
-                "\nFull path to the Atlas .atlascatalog.json file: ")
+                "\nFull path to the encrypted Atlas .atlascatalog package: ")
             {
                 AllowSpaces = true
             });
@@ -72,8 +203,15 @@ public sealed class AtlasBridgeCommands
 
         try
         {
-            var count = _catalogStore.Install(sourcePath);
-            editor.WriteMessage($"\n[ATLAS] Catalog installed and validated: {count} styles.");
+            _license.RequireValid();
+            var header = _catalogStore.InspectSource(sourcePath);
+            var key = _license.GetCatalogKey(header.KeyId);
+            var count = _catalogStore.Install(sourcePath, key);
+            editor.WriteMessage($"\n[ATLAS] Encrypted catalog installed and authenticated: {count} styles; version {header.CatalogVersion}; key {header.KeyId}.");
+        }
+        catch (LicenseOperationException exception)
+        {
+            editor.WriteMessage($"\n[ATLAS] Catalog installation denied ({exception.Code}).");
         }
         catch (BridgeCommandException exception)
         {
@@ -109,7 +247,12 @@ public sealed class AtlasBridgeCommands
         try
         {
             var request = _store.ReadRequest(requestId);
+            _license.RequireValid();
             response = Execute(document, requestId, request);
+        }
+        catch (LicenseOperationException exception)
+        {
+            response = DrawMlineResponse.Fail(requestId, exception.Code, exception.Message);
         }
         catch (BridgeCommandException exception)
         {
@@ -173,7 +316,12 @@ public sealed class AtlasBridgeCommands
         try
         {
             var request = _store.ReadEnsureStyleRequest(requestId);
+            _license.RequireValid();
             response = ExecuteEnsureStyle(document, requestId, request);
+        }
+        catch (LicenseOperationException exception)
+        {
+            response = EnsureStyleResponse.Fail(requestId, exception.Code, exception.Message);
         }
         catch (BridgeCommandException exception)
         {
@@ -259,12 +407,20 @@ public sealed class AtlasBridgeCommands
             return request.Style;
         try
         {
-            return MlineStyleCatalog.Find(_catalogStore.Read(), request.StyleName!);
+            return MlineStyleCatalog.Find(ReadProtectedCatalog(), request.StyleName!);
         }
         catch (KeyNotFoundException)
         {
             throw new BridgeCommandException("catalog_style_not_found", "The requested style is not present in the installed catalog.");
         }
+    }
+
+    private IReadOnlyList<MlineStyleDefinition> ReadProtectedCatalog()
+    {
+        _license.RequireValid();
+        var header = _catalogStore.Inspect();
+        var key = _license.GetCatalogKey(header.KeyId);
+        return _catalogStore.Read(key);
     }
 
     private static MlineStyle CreateStyle(

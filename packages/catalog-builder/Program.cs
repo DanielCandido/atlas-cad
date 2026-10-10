@@ -1,6 +1,10 @@
 using System.Text;
 using System.Text.Json;
 using Atlas.Cad.Core.Styles;
+using Atlas.Licensing;
+
+if (args.Length > 0 && string.Equals(args[0], "protect", StringComparison.OrdinalIgnoreCase))
+    return ProtectCatalog(args);
 
 if (args.Length != 2 && args.Length != 4)
 {
@@ -136,6 +140,43 @@ static CatalogOverrides ReadOverrides(string path)
 }
 
 static string OverrideKey(string sourceFile, string styleName) => sourceFile.Trim() + "\n" + styleName.Trim();
+
+static int ProtectCatalog(string[] arguments)
+{
+    if (arguments.Length != 5 || !int.TryParse(arguments[4], out var catalogVersion) || catalogVersion <= 0)
+    {
+        Console.Error.WriteLine("Usage: Atlas.CatalogBuilder protect <input.atlascatalog.json> <output.atlascatalog> <key-ring.json> <catalog-version>");
+        return 2;
+    }
+    var inputPath = Path.GetFullPath(arguments[1]);
+    var outputPath = Path.GetFullPath(arguments[2]);
+    var keyPath = Path.GetFullPath(arguments[3]);
+    if (!File.Exists(inputPath) || !File.Exists(keyPath)) throw new InvalidOperationException("Catalog input or key ring was not found.");
+    if (!inputPath.EndsWith(".atlascatalog.json", StringComparison.OrdinalIgnoreCase) ||
+        !outputPath.EndsWith(".atlascatalog", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("Protected output must use .atlascatalog and input must use .atlascatalog.json.");
+    var plaintext = File.ReadAllBytes(inputPath);
+    using (var validation = new MemoryStream(plaintext, writable: false)) MlineStyleCatalog.Read(validation);
+    var ring = JsonSerializer.Deserialize<CatalogKeyRing>(File.ReadAllText(keyPath),
+        new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true }) ??
+        throw new InvalidOperationException("Catalog key ring is empty.");
+    if (ring.Version != 1 || string.IsNullOrWhiteSpace(ring.CurrentKeyId)) throw new InvalidOperationException("Catalog key ring is invalid.");
+    var entry = ring.Keys.SingleOrDefault(item => string.Equals(item.KeyId, ring.CurrentKeyId, StringComparison.Ordinal)) ??
+        throw new InvalidOperationException("Current catalog key is missing from the key ring.");
+    var key = LicenseCrypto.Base64UrlDecode(entry.KeyMaterial);
+    var directory = Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+    var temporary = outputPath + ".tmp";
+    if (File.Exists(temporary)) File.Delete(temporary);
+    try
+    {
+        using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            CatalogPackage.Protect(output, plaintext, key, entry.KeyId, catalogVersion);
+        File.Move(temporary, outputPath, overwrite: true);
+    }
+    finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    Console.WriteLine($"Catalog protected: version={catalogVersion}; key={entry.KeyId}; output={outputPath}");
+    return 0;
+}
 
 public sealed class CatalogOverrides
 {

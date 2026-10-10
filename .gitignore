@@ -13,6 +13,7 @@ obj/
 *.mln
 *.mlnx
 *.atlascatalog.json
+*.atlascatalog
 !tests/Atlas.Core.Tests/Fixtures/*.mln
 *.lsp
 *.fas
@@ -22,6 +23,9 @@ obj/
 !cad/legacy-lisp/atlas-bridge.lsp
 !assets/source-mln/README.md
 *.bin
+*.pk8
+*.tsbuildinfo
+licensing-state.json
 
 # Material privado fornecido para análise. Nunca versionar nem empacotar.
 /docs/knowledge/

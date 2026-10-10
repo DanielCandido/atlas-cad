@@ -1,15 +1,31 @@
-# Arquitetura V1
+# Architecture V1
 
-- Web Next.js: catálogo, conta e compras (futuro).
-- API ASP.NET Core: produtos, pedidos, ativação, revogação, refresh (somente endpoints demo nesta versão).
-- PostgreSQL: persistência futura de usuários, pedidos, licenças, dispositivos e eventos.
-- License Manager: par de chaves por instalação e ativação (futuro).
-- Plugins AutoCAD: builds separados net48 / net8, adaptadores dependentes de Autodesk (futuro).
-- Core netstandard2.0: normalização e regras independentes do AutoCAD.
+## Runtime path
 
-## Plano incremental
-1. Adicionar `MlineStyle` e converter uma LINE real.
-2. Parser de MLN com testes contra estilos originais.
-3. Assinaturas Ed25519 e prova de posse de chave do dispositivo.
-4. Migrations e endpoints reais de licença.
-5. Checkout, portal, instalador e atualização.
+`STEELFLOW.m4.lsp` keeps the established selection/profile workflow and sends
+opaque request IDs to the version-specific AutoCAD adapter. The adapter owns
+catalog lookup, exact MLINE-style creation, MLINE creation and the M4 license
+gate. A failed bridge or license check preserves the source geometry.
+
+The AutoCAD 2026 adapter currently targets `net10.0-windows`, matching the
+installed AutoCAD 2026.1.2 runtime. The 2022-2024 adapter remains `net48` and is
+pending the M6 installed-version matrix.
+
+## Licensing path
+
+The ASP.NET Core API issues ECDSA P-256 signed 72-hour entitlements. A Windows
+CNG ECDSA P-256 key is generated per device and kept non-exportable. Activation
+and renewal require a proof signed by that device key; the plugin validates the
+server signature, protocol, issuer, product, module, device fingerprint and
+expiry locally.
+
+The M4 API uses an atomic JSON repository for single-node development. A
+transactional PostgreSQL repository, managed signing keys, audit events, HTTPS
+deployment and signing-key rotation are production prerequisites.
+
+## Remaining milestones
+
+- M5: completed and accepted in AutoCAD 2026 with AES-256-GCM packaging,
+  proof-bound server key release and a DPAPI-protected 72-hour device cache.
+- M6: Autodesk bundle, signing, upgrades and AutoCAD 2022-2026 matrix.
+- Web account, checkout and customer self-service remain outside M4.

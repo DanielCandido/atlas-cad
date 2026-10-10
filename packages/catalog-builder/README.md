@@ -1,26 +1,29 @@
 # Catalog builder
 
-Ferramenta offline do M2 para ler uma pasta de arquivos MLN, validar e normalizar
-todos os estilos em um catálogo JSON intermediário.
+The M2 normalization mode reads private MLN files, applies explicit collision
+overrides and writes a validated private JSON intermediate:
 
 ```powershell
-dotnet run --project packages/catalog-builder/Atlas.CatalogBuilder.csproj -- `
-  "C:\private\mlines" `
-  "C:\private\build\steel.atlascatalog.json" `
-  --overrides "C:\private\catalog-overrides.json"
+dotnet run --project packages/catalog-builder -- `
+  C:\private\mlines `
+  C:\private\steel.atlascatalog.json `
+  --overrides C:\private\catalog-overrides.json
 ```
 
-O parser aceita múltiplos estilos por arquivo e preserva offsets, cores ACI,
-linetypes, flags/caps e ângulos em graus. Duplicatas materialmente idênticas são
-consolidadas. Arquivos malformados e definições diferentes com o mesmo nome
-interrompem a geração, exceto quando um overlay identifica explicitamente arquivo,
-nome original e novo alias.
+The `.atlascatalog.json` intermediate contains proprietary properties in
+plaintext and must never be distributed. M5 turns it into an authenticated
+AES-256-GCM package:
 
-O resultado ainda contém propriedades proprietárias em texto claro. A extensão
-`.atlascatalog.json` é ignorada e bloqueada pelo verificador de ativos privados;
-ela não deve ser versionada nem distribuída. Proteção do catálogo pertence ao M5.
+```powershell
+dotnet run --project packages/catalog-builder -- protect `
+  C:\private\steel.atlascatalog.json `
+  C:\build\steel.atlascatalog `
+  C:\private\catalog-keys.json `
+  1
+```
 
-No ambiente de desenvolvimento M3, o catálogo aprovado é instalado pelo comando
-`ATLAS_INSTALL_CATALOG`. O adaptador relê e valida o arquivo antes de qualquer
-resolução ou criação de estilo; catálogos vazios, grandes demais, duplicados ou
-estruturalmente inválidos são rejeitados.
+The public header contains versions, product/catalog IDs, key ID, nonce and
+hash. The complete header is GCM associated data, so changes to metadata,
+ciphertext or tag prevent decryption. The 256-bit key is not included in the
+package or client. `ATLAS_INSTALL_CATALOG` accepts only the encrypted package,
+validates all 652 decrypted styles in memory and persists only ciphertext.

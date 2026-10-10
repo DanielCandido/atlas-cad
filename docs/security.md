@@ -1,10 +1,26 @@
-# Segurança: decisões e limites
+# Security decisions and limits
 
-- Nunca distribuir arquivos-fonte LSP/MLN privados no instalador.
-- Não distribuir chave privada de assinatura no plugin.
-- Identificador de hardware não é segredo; preferir chave privada protegida por TPM quando possível.
-- Autorização offline curta (meta 72h) e tokens assinados. Revogação imediata offline é impossível.
-- Estilos MLINE persistidos em DWG podem ser inspecionados; criptografia do catálogo não impede extração do desenho.
-- Criptografia de catálogo ainda **não implementada**. Não afirmar resistência a engenharia reversa.
-- Usar HTTPS, rate limits, logs auditáveis e validação de webhooks quando forem implementados.
-- `.env` e segredos não entram no controle de versão.
+- Never ship private LSP/MLN source, server signing private keys, admin API keys
+  or plaintext activation codes in source control or the client package.
+- M4 uses ECDSA P-256 signatures; it has no deterministic key generator, XOR
+  protection or universal client secret.
+- The per-device private key is a named, non-exportable Windows CNG key. The
+  server stores only public key material and a fingerprint.
+- Entitlements are bound to product, activation, generation and device and
+  expire after 72 hours. Missing, malformed, tampered, copied or expired local
+  state is denied by protected C# operations.
+- Transfer revokes future renewal of the previous activation. Immediate
+  revocation while that machine is offline is impossible; its cached signed
+  entitlement remains valid until expiry.
+- M4 rate-limits state-changing API endpoints and compares the admin key in
+  constant time. Production still requires HTTPS, managed secrets/signing keys,
+  durable audit logs and a transactional database.
+- M5 encrypts and authenticates the catalog with AES-256-GCM. The client has no
+  embedded catalog key; an active device obtains a versioned key from the server
+  using a signed proof and caches it with current-user Windows DPAPI.
+- GCM nonces are random 96-bit values generated for every package build and the
+  header is authenticated as AAD. Reusing a key/nonce pair is forbidden.
+- Styles stored inside a DWG and plaintext present in an authorized process
+  remain inspectable even after catalog encryption.
+- Client code can be reverse engineered. The security boundary is short-lived
+  server authority plus device proof, not secrecy of the plugin binary.

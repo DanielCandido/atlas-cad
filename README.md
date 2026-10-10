@@ -1,37 +1,39 @@
-# ATLAS CAD — protótipo incremental
+# ATLAS CAD
 
-Scaffold para comercialização futura de automações AutoLISP/MLN por plugin AutoCAD com licenciamento. **Não é produto pronto e não protege arquivos ainda.**
+AutoCAD automation plugin that converts LINE/ARC/LWPOLYLINE profile axes into
+catalog-backed MLINE geometry. The AutoCAD 2026 path includes device licensing,
+a 72-hour offline entitlement and an authenticated encrypted style catalog.
 
-## Pré-requisitos
-- Node.js 20+ e npm
-- .NET SDK 10 para core/AutoCAD 2026; .NET Framework 4.8 Developer Pack para o adaptador 2022
-- Docker + Docker Compose (opcional para banco)
-- AutoCAD instalado e referências da API Autodesk para compilar/testar plugins; **não incluídas**
+## Current status
 
-## Iniciar
-1. `cp .env.example .env` e altere a senha local.
-2. `docker compose up -d` para PostgreSQL. Banco está reservado para implementação futura; API v0.1 usa dados demonstrativos em memória.
-3. `cd apps/licensing-api && dotnet run` (porta HTTP definida no launchSettings).
-4. `cd apps/web && npm install && npm run dev` (http://localhost:3000).
-5. `dotnet test tests/Atlas.Core.Tests/Atlas.Core.Tests.csproj` (quando SDK disponível).
+- M0-M5 accepted in AutoCAD 2026.1.2+.
+- M6 release candidate implemented for AutoCAD `R25.1` / .NET 10.
+- AutoCAD 2022-2025 builds remain pending their authorized installations and
+  runtime matrix; the current bundle does not claim those versions.
 
-## Estado atual
-- API: `/health`, `/api/products`, `/api/licenses/demo-status` (somente demonstração, sem emissão de licença).
-- Web: landing page inicial sem checkout nem autenticação.
-- Core: contrato seguro do bridge e parser/normalizador MLN do M2.
-- AutoCAD 2026: `ATLAS_DRAW_MLINE` validado no caminho feliz e `ATLAS_ENSURE_STYLE` implementado, aguardando validação de runtime.
-- Catálogo: ferramenta offline valida MLN e bloqueia nomes duplicados/conflitantes; catálogo protegido ainda não foi implementado.
-- License Manager: CLI demonstrativa, **não gera fingerprint real**.
+## Developer prerequisites
 
-## Segurança
-Não colocar segredos, MLN, LSP proprietários ou chaves privadas no Git. Nunca utilizar `/api/licenses/demo-status` como autorização de produto. Ver `docs/security.md`.
+- .NET SDK 10
+- Node.js 20+
+- AutoCAD 2026.1.2+ and its managed API assemblies for the adapter/release build
+- Private MLN/STEELFLOW fixtures and signing/catalog keys in ignored locations
 
-## Próximos passos
-1. Validar `ATLAS_ENSURE_STYLE` no AutoCAD 2026.
-2. Resolver explicitamente as colisões do catálogo MLN privado.
-3. Concluir o M2 e integrar as fronteiras do STEELFLOW no M3.
-4. Tratar licenciamento e proteção somente nos marcos M4/M5.
+Run managed tests:
 
+```powershell
+dotnet test tests/Atlas.Core.Tests/Atlas.Core.Tests.csproj
+dotnet run --project tests/Atlas.Licensing.Smoke/Atlas.Licensing.Smoke.csproj
+```
 
-## Opção B — protótipo incremental
-Veja `docs/option-b-implementation.md` e `cad/atlas-cad-bridge/README.md`. O pacote não contém os arquivos proprietários recebidos.
+Build the AutoCAD 2026 development release:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/Build-AtlasRelease.ps1 -Version 1.0.0
+```
+
+See [M6 release documentation](docs/M6_RELEASE.md), the
+[implementation plan](docs/IMPLEMENTATION_PLAN.md), and
+[security boundaries](docs/security.md).
+
+Never commit or distribute private LSP/MLN source, plaintext catalog JSON,
+activation state, server signing keys or catalog key rings.

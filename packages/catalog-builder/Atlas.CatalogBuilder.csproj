@@ -8,5 +8,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../cad/atlas-core/Atlas.Cad.Core.csproj" />
+    <Compile Include="../licensing/**/*.cs"
+             Exclude="../licensing/bin/**;../licensing/obj/**"
+             Link="Licensing/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

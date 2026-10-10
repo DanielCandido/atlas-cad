@@ -2,7 +2,7 @@
 
 ## Estado
 
-O M3 foi iniciado pela fronteira final de desenho. A cópia privada do STEELFLOW
+O M3 está concluído para o alvo local AutoCAD 2026. A cópia privada do STEELFLOW
 chama o bridge C# para criar a MLINE e preserva as rotinas existentes de seleção,
 associação texto/perfil, discretização de arco, resolução de estilo, layer, UCS,
 variáveis e agrupamento de undo.
@@ -13,8 +13,18 @@ no AutoCAD 2026, e `ATLASCATALOGTEST` criou com sucesso um estilo real por meio
 do catálogo instalado. `SFRELOAD` também recebeu os 652 nomes dentro da cópia M3
 do STEELFLOW. O `SFM3SMOKETEST` confirmou em runtime o estilo existente
 `HP-200X53C`, a criação da MLINE com handle retornado e a substituição segura da
-LINE temporária. A matriz completa de paridade para ARC/LWPOLYLINE, UCS, layers
-bloqueados e cancelamentos ainda está pendente.
+LINE temporária.
+
+O teste do comando completo identificou uma divergência entre a identidade de
+desenho montada por `DWGPREFIX`/`DWGNAME` no LISP e `Database.Filename` no C#.
+O cliente agora obtém `expectedDrawingIdentity` por
+`ATLAS_ACTIVE_DRAWING_IDENTITY` e o comando continua comparando essa identidade
+com o documento ativo antes de modificar o DWG.
+
+Após a correção, o comando `STEELFLOW` foi validado de ponta a ponta no AutoCAD
+2026 com uma LINE e o texto `W150X13`: associação por proximidade, resolução das
+variantes Corte/Planta, estilo vindo do catálogo C#, criação confirmada da MLINE
+e remoção posterior da origem funcionaram no fluxo real.
 
 O harness privado `M3_PARITY_TEST.lsp` automatiza nove verificações de runtime:
 LINE aberta, ARC discretizado, LWPOLYLINE aberta/fechada/com bulge, layer
@@ -22,6 +32,12 @@ bloqueado com relock, UCS inclinado, retry sem duplicação e falha com preserva
 da origem. Todas as entidades ficam no mesmo grupo de undo. Durante a preparação
 do harness foi corrigida, somente na cópia M3, a comparação do último vértice de
 uma polilinha fechada; o fonte original continua inalterado.
+
+Na aceitação final, oito casos passaram juntos e o caso fechado passou no teste
+isolado com 4/4 vértices e flag DXF 70 igual a `1`. O resultado consolidado é
+9/9: LINE, ARC, LWPOLYLINE aberta/fechada/com bulge, layer bloqueado com relock,
+UCS inclinado, retry sem duplicação e falha preservando a origem. O comando real
+`STEELFLOW` também concluiu a conversão associada ao texto `W150X13`.
 
 ## Integridade do fonte privado
 
@@ -86,6 +102,6 @@ inválido ou sem o estilo solicitado preserva a entidade de origem.
 - A busca de retry percorre o espaço ativo e será indexada antes de produção caso
   medições mostrem impacto em desenhos grandes.
 - AutoCAD 2022 continua sem build/runtime local.
-- A instalação e o uso do catálogo ainda precisam do smoke test no AutoCAD 2026;
-  a compilação e as validações offline não afirmam paridade de runtime.
+- AutoCAD 2022 e a matriz completa entre versões permanecem para o M6; não há
+  assemblies/runtime local autorizado para afirmar paridade nessa versão.
 

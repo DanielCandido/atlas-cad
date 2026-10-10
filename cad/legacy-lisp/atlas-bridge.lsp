@@ -97,7 +97,7 @@
       (setq request-path (strcat root "\\" request-id ".request.json"))
       (setq request-temp (strcat request-path ".tmp"))
       (setq response-path (strcat root "\\" request-id ".response.json"))
-      (setq drawing-id (strcat (getvar "DWGPREFIX") (getvar "DWGNAME")))
+      (setq drawing-id (atlas--bridge-scalar (ATLAS_ACTIVE_DRAWING_IDENTITY)))
       (setq payload
         (strcat
           "{\"protocolVersion\":1"
@@ -167,7 +167,7 @@
       (setq request-path (strcat root "\\" request-id ".request.json"))
       (setq request-temp (strcat request-path ".tmp"))
       (setq response-path (strcat root "\\" request-id ".response.json"))
-      (setq drawing-id (strcat (getvar "DWGPREFIX") (getvar "DWGNAME")))
+      (setq drawing-id (atlas--bridge-scalar (ATLAS_ACTIVE_DRAWING_IDENTITY)))
       (setq payload
         (strcat
           "{\"protocolVersion\":1"
@@ -293,7 +293,7 @@
       (setq request-path (strcat root "\\" request-id ".request.json"))
       (setq request-temp (strcat request-path ".tmp"))
       (setq response-path (strcat root "\\" request-id ".response.json"))
-      (setq drawing-id (strcat (getvar "DWGPREFIX") (getvar "DWGNAME")))
+      (setq drawing-id (atlas--bridge-scalar (ATLAS_ACTIVE_DRAWING_IDENTITY)))
       (setq payload
         (strcat
           "{\"protocolVersion\":1"
@@ -381,5 +381,5 @@
   (princ)
 )
 
-(princ "\nATLAS bridge client loaded. Commands: ATLASBRIDGETEST, ATLASBRIDGETESTPATH, ATLASSTYLETEST, ATLASCATALOGTEST, ATLAS_INSTALL_CATALOG.")
+(princ "\nATLAS bridge client loaded. Commands: ATLASBRIDGETEST, ATLASBRIDGETESTPATH, ATLASSTYLETEST, ATLASCATALOGTEST, ATLAS_INSTALL_CATALOG, ATLAS_LICENSE_STATUS, ATLAS_LICENSE_ACTIVATE, ATLAS_LICENSE_RENEW, ATLAS_DIAGNOSTICS.")
 (princ)
