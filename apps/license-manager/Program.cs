@@ -14,6 +14,7 @@ static async Task<int> MainAsync(string[] arguments)
         {
             "generate-signing-key" => GenerateSigningKey(arguments),
             "generate-catalog-key" => GenerateCatalogKey(arguments),
+            "import-catalog-key" => ImportCatalogKey(arguments),
             "issue" => await IssueAsync(arguments),
             "transfer" => await TransferAsync(arguments),
             "simulate-device" => await SimulateDeviceAsync(arguments),
@@ -31,9 +32,12 @@ static async Task<int> MainAsync(string[] arguments)
 
 static int GenerateSigningKey(string[] arguments)
 {
-    if (arguments.Length != 3) return Usage();
+    if (arguments.Length != 4) return Usage();
     var privatePath = Path.GetFullPath(arguments[1]);
     var publicPath = Path.GetFullPath(arguments[2]);
+    var keyId = arguments[3].Trim();
+    if (!System.Text.RegularExpressions.Regex.IsMatch(keyId, "^[A-Za-z0-9._-]{1,80}$"))
+        throw new InvalidOperationException("Signing key ID is invalid.");
     if (File.Exists(privatePath) || File.Exists(publicPath))
         throw new InvalidOperationException("Refusing to overwrite an existing signing key.");
     Directory.CreateDirectory(Path.GetDirectoryName(privatePath)!);
@@ -44,7 +48,7 @@ static int GenerateSigningKey(string[] arguments)
     File.WriteAllText(publicPath, JsonSerializer.Serialize(new
     {
         protocolVersion = LicensingProtocol.CurrentVersion,
-        keyId = LicensingProtocol.DevelopmentKeyId,
+        keyId,
         curve = "P-256",
         x = LicenseCrypto.Base64UrlEncode(parameters.Q.X!),
         y = LicenseCrypto.Base64UrlEncode(parameters.Q.Y!)
@@ -75,6 +79,48 @@ static int GenerateCatalogKey(string[] arguments)
     File.WriteAllText(path, JsonSerializer.Serialize(ring, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
     Console.WriteLine("Catalog key ring: " + path);
     Console.WriteLine("Current key ID: " + keyId);
+    return 0;
+}
+
+static int ImportCatalogKey(string[] arguments)
+{
+    if (arguments.Length != 4) return Usage();
+    var targetPath = Path.GetFullPath(arguments[1]);
+    var sourcePath = Path.GetFullPath(arguments[2]);
+    var keyId = arguments[3].Trim();
+    if (!File.Exists(targetPath) || !File.Exists(sourcePath))
+        throw new InvalidOperationException("Target or source catalog key ring was not found.");
+    if (!System.Text.RegularExpressions.Regex.IsMatch(keyId, "^[A-Za-z0-9._-]{1,80}$"))
+        throw new InvalidOperationException("Catalog key ID is invalid.");
+    var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = true
+    };
+    var target = JsonSerializer.Deserialize<CatalogKeyRing>(File.ReadAllText(targetPath), jsonOptions) ??
+        throw new InvalidOperationException("Target catalog key ring is empty.");
+    var source = JsonSerializer.Deserialize<CatalogKeyRing>(File.ReadAllText(sourcePath), jsonOptions) ??
+        throw new InvalidOperationException("Source catalog key ring is empty.");
+    var sourceEntry = source.Keys.SingleOrDefault(item => string.Equals(item.KeyId, keyId, StringComparison.Ordinal)) ??
+        throw new InvalidOperationException("Requested catalog key does not exist in the source key ring.");
+    var existing = target.Keys.SingleOrDefault(item => string.Equals(item.KeyId, keyId, StringComparison.Ordinal));
+    if (existing != null)
+    {
+        if (!string.Equals(existing.KeyMaterial, sourceEntry.KeyMaterial, StringComparison.Ordinal))
+            throw new InvalidOperationException("Target contains the same key ID with different key material.");
+        Console.WriteLine("Catalog key already available: " + keyId);
+        return 0;
+    }
+    target.Keys.Add(new CatalogKeyEntry { KeyId = sourceEntry.KeyId, KeyMaterial = sourceEntry.KeyMaterial });
+    var temporary = targetPath + ".tmp";
+    try
+    {
+        File.WriteAllText(temporary, JsonSerializer.Serialize(target, jsonOptions));
+        File.Move(temporary, targetPath, overwrite: true);
+    }
+    finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    Console.WriteLine("Imported legacy catalog key: " + keyId);
+    Console.WriteLine("Current catalog key remains: " + target.CurrentKeyId);
     return 0;
 }
 
@@ -245,8 +291,9 @@ static JsonSerializerOptions WebJson() => new(JsonSerializerDefaults.Web);
 static int Usage()
 {
     Console.Error.WriteLine("Atlas License Manager");
-    Console.Error.WriteLine("  generate-signing-key <private.pk8> <public.json>");
+    Console.Error.WriteLine("  generate-signing-key <private.pk8> <public.json> <key-id>");
     Console.Error.WriteLine("  generate-catalog-key <key-ring.json> <key-id>");
+    Console.Error.WriteLine("  import-catalog-key <target-ring.json> <source-ring.json> <key-id>");
     Console.Error.WriteLine("  issue <api-base> <admin-key> <customer-reference>");
     Console.Error.WriteLine("  transfer <api-base> <admin-key> <license-id>");
     Console.Error.WriteLine("  simulate-device <api-base> <activation-code>");

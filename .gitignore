@@ -6,6 +6,9 @@ obj/
 .packages/
 .env
 .env.local
+.env.tunnel*
+!.env.tunnel.example
+.env.production
 *.user
 *.suo
 *.dwg
@@ -31,3 +34,5 @@ licensing-state.json
 /docs/knowledge/
 /fixtures/private/
 /tests/autocad/baseline/private/
+/infra/secrets/
+/infra/artifacts/

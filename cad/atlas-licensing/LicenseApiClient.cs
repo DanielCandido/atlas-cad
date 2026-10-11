@@ -15,7 +15,7 @@ internal sealed class LicenseApiClient : IDisposable
         var configured = Environment.GetEnvironmentVariable("ATLAS_LICENSE_API");
         _client = new HttpClient
         {
-            BaseAddress = new Uri(string.IsNullOrWhiteSpace(configured) ? "http://127.0.0.1:5080/" : configured.TrimEnd('/') + "/"),
+            BaseAddress = new Uri(string.IsNullOrWhiteSpace(configured) ? RuntimeConfiguration.LicenseApiBaseUrl : configured.TrimEnd('/') + "/"),
             Timeout = TimeSpan.FromSeconds(12)
         };
     }

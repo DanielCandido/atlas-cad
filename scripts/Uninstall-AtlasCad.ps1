@@ -1,10 +1,12 @@
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
 param(
     [ValidateSet('CurrentUser', 'AllUsers')] [string]$Scope = 'CurrentUser',
-    [switch]$PurgeUserData
+    [switch]$PurgeUserData,
+    [switch]$NonInteractive
 )
 
 $ErrorActionPreference = 'Stop'
+if ($NonInteractive) { $ConfirmPreference = 'None' }
 if (Get-Process acad -ErrorAction SilentlyContinue) { throw 'Close AutoCAD before uninstalling ATLAS CAD.' }
 $base = if ($Scope -eq 'AllUsers') {
     Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)) 'Autodesk\ApplicationPlugins'

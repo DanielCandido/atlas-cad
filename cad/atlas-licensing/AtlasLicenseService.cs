@@ -9,6 +9,7 @@ internal sealed class AtlasLicenseService
 {
     private readonly DeviceKeyStore _keys = new DeviceKeyStore();
     private readonly SecureLicenseStore _store = new SecureLicenseStore();
+    private long _lastRenewalAttemptUnix;
 
     public EntitlementClaims Activate(string activationCode)
     {
@@ -115,11 +116,24 @@ internal sealed class AtlasLicenseService
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             if (now + LicensingProtocol.MaximumClockSkewMinutes * 60L < state.LastSeenUnix)
                 throw new LicenseOperationException("clock_rollback", "System clock moved backwards.");
-            var claims = ValidateToken(state.EntitlementToken, deviceKey);
+            EntitlementClaims claims;
+            try { claims = ValidateToken(state.EntitlementToken, deviceKey); }
+            catch (LicenseOperationException exception) when (exception.Code == "token_expired")
+            {
+                try { return Renew(); }
+                catch (LicenseOperationException) { throw exception; }
+            }
             if (now > state.LastSeenUnix)
             {
                 state.LastSeenUnix = now;
                 _store.Write(state, deviceKey);
+            }
+            if (claims.ExpiresAtUnix - now <= LicensingProtocol.RenewalThresholdHours * 60L * 60L &&
+                now - _lastRenewalAttemptUnix >= 15L * 60L)
+            {
+                _lastRenewalAttemptUnix = now;
+                try { return Renew(); }
+                catch (LicenseOperationException) { /* Keep the still-valid offline entitlement. */ }
             }
             return claims;
         }

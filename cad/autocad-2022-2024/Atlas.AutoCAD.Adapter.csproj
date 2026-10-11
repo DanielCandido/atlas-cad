@@ -6,10 +6,13 @@
     <AssemblyName>Atlas.AutoCAD.Adapter.2022</AssemblyName>
     <Version Condition="'$(Version)' == ''">1.0.0</Version>
     <RootNamespace>Atlas.AutoCAD.Adapter</RootNamespace>
-    <AutodeskAutoCADRoot Condition="'$(AutodeskAutoCADRoot)' == ''">$(AUTOCAD_2022_ROOT)</AutodeskAutoCADRoot>
+    <AtlasSigningPublicKeyPath Condition="'$(AtlasSigningPublicKeyPath)' == ''">$(MSBuildThisFileDirectory)..\..\secrets\server-signing-public.json</AtlasSigningPublicKeyPath>
+    <AtlasRuntimeConfigurationPath Condition="'$(AtlasRuntimeConfigurationPath)' == ''">$(MSBuildThisFileDirectory)..\..\secrets\runtime-configuration.json</AtlasRuntimeConfigurationPath>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AutoCAD.NET" Version="24.3.0" PrivateAssets="all" />
+    <Reference Include="System.Net.Http" />
     <Compile Include="../atlas-core/**/*.cs"
              Exclude="../atlas-core/bin/**;../atlas-core/obj/**"
              Link="Core/%(RecursiveDir)%(Filename)%(Extension)" />
@@ -18,24 +21,12 @@
     <Compile Include="../../packages/licensing/**/*.cs"
              Exclude="../../packages/licensing/bin/**;../../packages/licensing/obj/**"
              Link="LicensingProtocol/%(RecursiveDir)%(Filename)%(Extension)" />
-    <Reference Include="AcMgd">
-      <HintPath>$(AutodeskAutoCADRoot)/acmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="AcDbMgd">
-      <HintPath>$(AutodeskAutoCADRoot)/acdbmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="AcCoreMgd">
-      <HintPath>$(AutodeskAutoCADRoot)/accoremgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <EmbeddedResource Include="$(AtlasSigningPublicKeyPath)" LogicalName="Atlas.SigningPublicKey.json" />
+    <EmbeddedResource Include="$(AtlasRuntimeConfigurationPath)" LogicalName="Atlas.RuntimeConfiguration.json" />
   </ItemGroup>
 
   <Target Name="ValidateAutodeskReferences" BeforeTargets="ResolveAssemblyReferences">
-    <Error Condition="'$(AutodeskAutoCADRoot)' == ''"
-           Text="Set AutodeskAutoCADRoot or AUTOCAD_2022_ROOT to the AutoCAD 2022 installation directory." />
-    <Error Condition="!Exists('$(AutodeskAutoCADRoot)/acmgd.dll') Or !Exists('$(AutodeskAutoCADRoot)/acdbmgd.dll') Or !Exists('$(AutodeskAutoCADRoot)/accoremgd.dll')"
-           Text="AutoCAD managed assemblies were not found under '$(AutodeskAutoCADRoot)'." />
+    <Error Condition="!Exists('$(AtlasSigningPublicKeyPath)')" Text="Production signing public key was not found at '$(AtlasSigningPublicKeyPath)'." />
+    <Error Condition="!Exists('$(AtlasRuntimeConfigurationPath)')" Text="Runtime configuration was not found at '$(AtlasRuntimeConfigurationPath)'." />
   </Target>
 </Project>

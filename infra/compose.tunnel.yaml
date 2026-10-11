@@ -1,0 +1,92 @@
+name: atlas-cad-tunnel
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/licensing-api/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__Atlas: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      ATLAS_LICENSE_SIGNING_KEY_PATH: /run/atlas-secrets/server-signing-key.pk8
+      ATLAS_LICENSE_SIGNING_KEY_ID: ${ATLAS_LICENSE_SIGNING_KEY_ID}
+      ATLAS_LICENSE_ADMIN_KEY: ${ATLAS_LICENSE_ADMIN_KEY}
+      ATLAS_CATALOG_KEYS_PATH: /run/atlas-secrets/catalog-keys.json
+      ATLAS_DOWNLOAD_PATH: /downloads/AtlasCad-latest-win64.zip
+      ATLAS_DOWNLOAD_AUTOCAD_2022_2024_PATH: /downloads/AtlasCad-autocad-2022-2024-win64.zip
+      ATLAS_DOWNLOAD_AUTOCAD_2025_2026_1_1_PATH: /downloads/AtlasCad-autocad-2025-2026-1-1-win64.zip
+      ATLAS_DOWNLOAD_AUTOCAD_2026_1_2_PLUS_PATH: /downloads/AtlasCad-autocad-2026-1-2-plus-win64.zip
+      ATLAS_MACHINE_IDENTIFIER_PATH: /downloads/AtlasCad-Identificador.exe
+      ASAAS_BASE_URL: ${ASAAS_BASE_URL}
+      ASAAS_CHECKOUT_BASE_URL: ${ASAAS_CHECKOUT_BASE_URL}
+      ASAAS_API_KEY: ${ASAAS_API_KEY}
+      ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN}
+      ATLAS_PUBLIC_WEB_URL: ${ATLAS_PUBLIC_WEB_URL}
+      ATLAS_PLAN_MONTHLY_PRICE: ${ATLAS_PLAN_MONTHLY_PRICE}
+      ATLAS_PLAN_YEARLY_PRICE: ${ATLAS_PLAN_YEARLY_PRICE}
+    volumes:
+      - ./secrets:/run/atlas-secrets:ro
+      - ./artifacts:/downloads:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend, tunnel]
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ATLAS_LICENSE_API: http://api:8080
+      ATLAS_PLAN_MONTHLY_PRICE: ${ATLAS_PLAN_MONTHLY_PRICE}
+      ATLAS_PLAN_YEARLY_PRICE: ${ATLAS_PLAN_YEARLY_PRICE}
+    depends_on: [api]
+    networks: [backend, tunnel]
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --loglevel
+      - info
+      - --protocol
+      - http2
+      - --metrics
+      - 0.0.0.0:2000
+      - run
+      - --token-file
+      - /run/secrets/cloudflare-tunnel-token
+    volumes:
+      - ./secrets/cloudflare-tunnel-token.txt:/run/secrets/cloudflare-tunnel-token:ro
+    depends_on: [web, api]
+    networks: [tunnel]
+
+networks:
+  backend:
+    internal: true
+  tunnel:
+
+volumes:
+  postgres_data:

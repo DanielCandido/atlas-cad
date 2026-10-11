@@ -15,8 +15,10 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Package
 $package = $manifest.ApplicationPackage
 if ($package.AutodeskProduct -ne 'AutoCAD' -or $package.ProductType -ne 'Application') { throw 'Manifest product metadata is invalid.' }
 $runtime = $package.Components.RuntimeRequirements
-if ($runtime.OS -ne 'Win64' -or $runtime.SeriesMin -ne 'R25.1' -or $runtime.SeriesMax -ne 'R25.1') {
-    throw 'This release must be constrained to AutoCAD R25.1 (2026).'
+$supportedRanges = @('R24.1|R24.3', 'R25.0|R25.1', 'R25.1|R25.1')
+$range = ([string]$runtime.SeriesMin) + '|' + ([string]$runtime.SeriesMax)
+if ($runtime.OS -ne 'Win64' -or $range -notin $supportedRanges) {
+    throw "Unsupported AutoCAD runtime range: $range"
 }
 
 $rootPrefix = $bundle.TrimEnd('\') + '\'
@@ -40,8 +42,11 @@ $forbidden = @($files | Where-Object {
 })
 if ($forbidden.Count -gt 0) { throw ('Forbidden release files: ' + (($forbidden.Name | Sort-Object) -join ', ')) }
 
-$content = Join-Path $bundle 'Contents\Windows\2026'
-$adapter = Join-Path $content 'Atlas.AutoCAD.Adapter.2026.dll'
+$netEntry = @($package.Components.ComponentEntry | Where-Object { $_.AppType -eq '.Net' })
+if ($netEntry.Count -ne 1) { throw 'Manifest must contain exactly one .NET adapter.' }
+$adapterRelative = [string]$netEntry[0].ModuleName
+$adapter = [IO.Path]::GetFullPath((Join-Path $bundle $adapterRelative.Substring(2)))
+$content = Split-Path -Parent $adapter
 $catalog = Join-Path $content 'steel.atlascatalog'
 if (-not (Test-Path (Join-Path $content 'STEELFLOW.fas'))) { throw 'Compiled STEELFLOW.fas is missing.' }
 if (-not (Test-Path $adapter) -or -not (Test-Path $catalog)) { throw 'Adapter or encrypted catalog is missing.' }

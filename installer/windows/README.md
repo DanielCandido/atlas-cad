@@ -7,6 +7,7 @@ M6 produces an Autodesk Application Bundle for the locally validated AutoCAD
 - public bridge/loader LSP files;
 - proprietary STEELFLOW compiled as FAS by AutoCAD Core Console;
 - authenticated encrypted `steel.atlascatalog`;
+- signed `AtlasCad-Identificador.exe` for self-service device activation;
 - `PackageContents.xml` and SHA-256 inventory.
 
 It never includes private STEELFLOW LSP, MLN/MLNX, plaintext catalog JSON,
@@ -16,7 +17,8 @@ Build a development release:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/Build-AtlasRelease.ps1 `
-  -Version 1.0.0
+  -Version 1.0.0 `
+  -PublicLicenseApiUrl https://api.seudominio.com.br
 ```
 
 For production, sign the adapter and make signing mandatory:
@@ -24,6 +26,7 @@ For production, sign the adapter and make signing mandatory:
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/Build-AtlasRelease.ps1 `
   -Version 1.0.0 `
+  -PublicLicenseApiUrl https://api.seudominio.com.br `
   -CertificateThumbprint <AUTHENTICODE_CERTIFICATE_THUMBPRINT> `
   -RequireCodeSigning
 ```

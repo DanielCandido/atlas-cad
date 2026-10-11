@@ -1,0 +1,3 @@
+import Link from 'next/link'; import { docs } from '@/lib/content'; import { Eyebrow } from '@/components/ui'; import type {Metadata} from 'next';
+export const metadata:Metadata={title:'Documentação'};
+export default function Docs(){return <><Eyebrow>CENTRAL DE CONHECIMENTO</Eyebrow><h1 className="docs-title">Documentação<span className="accent">.</span></h1><p className="docs-intro">Guias de compra, instalação, ativação e uso do ATLAS CAD.</p><div className="docs-search-note">Navegue pelos tópicos no menu lateral</div><div className="doc-card-grid">{docs.map(doc=><Link href={'/documentacao/'+doc.slug} className="doc-card" key={doc.slug}><small>{doc.group}</small><h2>{doc.title}<span>→</span></h2><p>{doc.summary}</p></Link>)}</div></>}

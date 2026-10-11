@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/licensing-api/Dockerfile
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Atlas: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      ATLAS_LICENSE_SIGNING_KEY_PATH: /run/atlas-secrets/server-signing-key.pk8
+      ATLAS_CATALOG_KEYS_PATH: /run/atlas-secrets/catalog-keys.json
+      ATLAS_DOWNLOAD_PATH: /downloads/AtlasCad-latest-win64.zip
+      ATLAS_DOWNLOAD_AUTOCAD_2022_2024_PATH: /downloads/AtlasCad-autocad-2022-2024-win64.zip
+      ATLAS_DOWNLOAD_AUTOCAD_2025_2026_1_1_PATH: /downloads/AtlasCad-autocad-2025-2026-1-1-win64.zip
+      ATLAS_DOWNLOAD_AUTOCAD_2026_1_2_PLUS_PATH: /downloads/AtlasCad-autocad-2026-1-2-plus-win64.zip
+      ATLAS_MACHINE_IDENTIFIER_PATH: /downloads/AtlasCad-Identificador.exe
+    volumes:
+      - ./secrets:/run/atlas-secrets:ro
+      - ./artifacts:/downloads:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      ATLAS_LICENSE_API: http://api:8080
+      ATLAS_PLAN_MONTHLY_PRICE: ${ATLAS_PLAN_MONTHLY_PRICE}
+      ATLAS_PLAN_YEARLY_PRICE: ${ATLAS_PLAN_YEARLY_PRICE}
+    depends_on: [api]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      ATLAS_DOMAIN: ${ATLAS_DOMAIN}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web, api]
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

@@ -6,9 +6,11 @@ namespace Atlas.Licensing.Api;
 public sealed class SigningKeyProvider : IDisposable
 {
     private readonly ECDsa _key;
+    private readonly string _keyId;
 
     public SigningKeyProvider(LicensingServerOptions options)
     {
+        _keyId = options.SigningKeyId;
         var bytes = File.ReadAllBytes(options.SigningKeyPath);
         _key = ECDsa.Create();
         _key.ImportPkcs8PrivateKey(bytes, out var read);
@@ -17,7 +19,7 @@ public sealed class SigningKeyProvider : IDisposable
         PublicDescriptor = new SigningPublicKeyDescriptor
         {
             ProtocolVersion = LicensingProtocol.CurrentVersion,
-            KeyId = LicensingProtocol.DevelopmentKeyId,
+            KeyId = _keyId,
             Curve = "P-256",
             X = LicenseCrypto.Base64UrlEncode(parameters.Q.X!),
             Y = LicenseCrypto.Base64UrlEncode(parameters.Q.Y!)
@@ -33,7 +35,7 @@ public sealed class SigningKeyProvider : IDisposable
         {
             ProtocolVersion = LicensingProtocol.CurrentVersion,
             Issuer = LicensingProtocol.Issuer,
-            KeyId = LicensingProtocol.DevelopmentKeyId,
+            KeyId = _keyId,
             ProductId = activation.ProductId,
             LicenseId = activation.LicenseId,
             ActivationId = activation.ActivationId,

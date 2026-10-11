@@ -12,6 +12,7 @@ Runtime commands:
 - `ATLAS_LICENSE_RENEW`: renew the 72-hour entitlement online.
 - `SFACTIVATE`: STEELFLOW alias for `ATLAS_LICENSE_ACTIVATE`.
 
-`ATLAS_LICENSE_API` selects the server URL. The default is
-`http://127.0.0.1:5080/` for local M4 testing. Production must use HTTPS and a
-production signing key/public trust anchor.
+The production API URL is embedded in the signed adapter at release build time.
+`ATLAS_LICENSE_API` can override it only for controlled development tests.
+Production builds require HTTPS and embed the matching public signing-key
+descriptor; private keys are never included in the bundle.

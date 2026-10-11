@@ -24,7 +24,7 @@ export default function Home() {
             </div>
             <div className="hero-note">
               <span className="pulse" />
-              Primeira biblioteca em preparação para lançamento
+              MLINES disponível com planos mensal e anual
             </div>
           </div>
           <CadVisual />

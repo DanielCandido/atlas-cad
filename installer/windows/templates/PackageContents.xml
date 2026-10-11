@@ -8,13 +8,13 @@
                     ProductCode="__PRODUCT_CODE__"
                     UpgradeCode="{CC6867A2-63DD-4C96-98B9-A0D5A69E069E}">
   <CompanyDetails Name="ATLAS CAD" />
-  <Components Description="ATLAS CAD for AutoCAD 2026.1.2 or later">
-    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.1" SeriesMax="R25.1" />
-    <ComponentEntry AppName="ATLAS CAD 2026 Adapter"
+  <Components Description="__DESCRIPTION__">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="__SERIES_MIN__" SeriesMax="__SERIES_MAX__" />
+    <ComponentEntry AppName="ATLAS CAD Adapter"
                     AppDescription="Licensed protected-catalog AutoCAD adapter"
                     AppType=".Net"
                     Version="__VERSION__"
-                    ModuleName="./Contents/Windows/2026/Atlas.AutoCAD.Adapter.2026.dll"
+                    ModuleName="./Contents/Windows/__CONTENT_FOLDER__/__ADAPTER_FILE__"
                     LoadOnAutoCADStartup="True">
       <Commands GroupName="ATLAS_CAD_COMMANDS">
         <Command Global="ATLAS_LICENSE_STATUS" Local="ATLAS_LICENSE_STATUS" />
@@ -28,7 +28,7 @@
                     AppDescription="Loads the public bridge and compiled STEELFLOW runtime"
                     AppType="Lisp"
                     Version="__VERSION__"
-                    ModuleName="./Contents/Windows/2026/atlas-loader.lsp"
+                    ModuleName="./Contents/Windows/__CONTENT_FOLDER__/atlas-loader.lsp"
                     LoadOnAutoCADStartup="True" />
   </Components>
 </ApplicationPackage>

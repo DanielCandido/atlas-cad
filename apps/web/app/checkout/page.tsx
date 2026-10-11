@@ -1,50 +1,37 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { Eyebrow } from '@/components/ui';
-export const metadata: Metadata = { title: 'Aquisição MLINES' };
-export default function Checkout() {
+import { CheckoutForm } from './checkout-form';
+
+export const metadata: Metadata = { title: 'Assinar MLINES' };
+export const dynamic = 'force-dynamic';
+
+export default async function Checkout() {
+  if ((await cookies()).has('atlas_session')) redirect('/minha-conta');
+  const monthlyPrice = process.env.ATLAS_PLAN_MONTHLY_PRICE || '79.90';
+  const yearlyPrice = process.env.ATLAS_PLAN_YEARLY_PRICE || '799.00';
   return (
     <section className="section page-top">
       <div className="container checkout-grid">
         <div>
-          <Eyebrow>ATLAS CAD / AQUISIÇÃO</Eyebrow>
+          <Eyebrow>ATLAS CAD / ASSINATURA</Eyebrow>
           <h1 className="page-title">
-            Adquira a biblioteca <span>MLINES.</span>
+            Comece com o <span>MLINES.</span>
           </h1>
           <p className="page-intro">
-            O fluxo comercial está preparado para receber um provedor de pagamentos. A compra online
-            ainda não está disponível nesta versão de demonstração.
+            Crie sua conta, escolha o plano e pague no ambiente seguro do Asaas. O download e a
+            ativação são liberados automaticamente após a confirmação.
           </p>
           <div className="notice">
-            <strong>Integração pendente</strong>
+            <strong>Compra segura</strong>
             <p>
-              Antes de aceitar pagamentos, é necessário definir preço, modelo de licença,
-              autenticação e webhook do gateway. Nenhum pagamento é processado nesta página.
+              O ATLAS CAD não recebe nem armazena dados bancários. PIX e boleto são emitidos pelo
+              Asaas.
             </p>
           </div>
-          <Link href="/bibliotecas/mlines" className="text-link">
-            ← Voltar para MLINES
-          </Link>
         </div>
-        <aside className="checkout-summary">
-          <div className="checkout-head">RESUMO DO PRODUTO</div>
-          <h2>ATLAS CAD / MLINES</h2>
-          <p>Biblioteca de automações para AutoCAD</p>
-          <div className="checkout-divider" />
-          <div className="checkout-row">
-            <span>Produto</span>
-            <strong>MLINES</strong>
-          </div>
-          <div className="checkout-row">
-            <span>Preço</span>
-            <strong>A definir</strong>
-          </div>
-          <div className="checkout-divider" />
-          <button className="button button-disabled" disabled>
-            Pagamento indisponível
-          </button>
-          <small>Não solicitamos dados de cartão nesta versão.</small>
-        </aside>
+        <CheckoutForm monthlyPrice={monthlyPrice} yearlyPrice={yearlyPrice} />
       </div>
     </section>
   );

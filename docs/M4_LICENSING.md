@@ -48,7 +48,7 @@ Required server environment variables:
 - `ATLAS_LICENSE_SIGNING_KEY_PATH`: PKCS#8 ECDSA private-key file.
 - `ATLAS_LICENSE_ADMIN_KEY`: at least 24 characters, sent only in the
   `X-Atlas-Admin-Key` header for administrative calls.
-- `ATLAS_LICENSE_STATE_PATH`: optional JSON state path.
+- `ConnectionStrings__Atlas`: PostgreSQL connection string for durable licensing and commerce state.
 
 Endpoints:
 
@@ -61,7 +61,7 @@ Endpoints:
 The manager can create keys and exercise the flow:
 
 ```powershell
-dotnet run --project apps/license-manager -- generate-signing-key <private.pk8> <public.json>
+dotnet run --project apps/license-manager -- generate-signing-key <private.pk8> <public.json> <key-id>
 dotnet run --project apps/license-manager -- issue http://127.0.0.1:5080 <admin-key> <customer>
 dotnet run --project apps/license-manager -- transfer http://127.0.0.1:5080 <admin-key> <license-id>
 dotnet run --project apps/license-manager -- simulate-device http://127.0.0.1:5080 <activation-code>
@@ -73,14 +73,12 @@ activation, so its next renewal is rejected. An entitlement already cached on
 an offline old device remains usable until its signed expiry. Instant offline
 revocation is impossible by design.
 
-## Current deployment boundary
+## Production persistence
 
-The M4 state store is an atomic JSON file protected by an in-process lock. It is
-appropriate for the local, single-node milestone test only. Before production
-or multiple API instances, migrate licenses, activation codes, devices,
-generations, nonces and audit events to PostgreSQL with transactions and unique
-constraints. Also replace the development signing key/trust anchor, use HTTPS,
-put the private key in a managed key service or HSM, and define key rotation.
+Licenses, activation codes, devices, generations, replay nonces, subscriptions
+and webhook audit events are stored in PostgreSQL with transactions and unique
+constraints. Production still requires HTTPS, encrypted backups, protected
+signing/catalog keys and a documented key-rotation procedure.
 
 The catalog itself remains readable in M4. Authenticated encryption and key
 release belong to M5; MLINE styles persisted in a DWG will remain inspectable.

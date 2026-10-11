@@ -24,7 +24,7 @@ if not "%ATLAS_EXIT_CODE%"=="0" (
 )
 
 echo Instalacao concluida com sucesso.
-echo Abra o AutoCAD 2026 e execute ATLAS_DIAGNOSTICS.
+echo Abra sua versao compativel do AutoCAD e execute ATLAS_DIAGNOSTICS.
 echo.
 pause
 exit /b 0

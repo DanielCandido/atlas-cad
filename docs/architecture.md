@@ -19,13 +19,15 @@ and renewal require a proof signed by that device key; the plugin validates the
 server signature, protocol, issuer, product, module, device fingerprint and
 expiry locally.
 
-The M4 API uses an atomic JSON repository for single-node development. A
-transactional PostgreSQL repository, managed signing keys, audit events, HTTPS
-deployment and signing-key rotation are production prerequisites.
+The production API stores commerce, licenses, device bindings, replay nonces
+and webhook audit events in PostgreSQL with transactions and unique
+constraints. Deployment also requires encrypted backups, protected signing
+keys, HTTPS and a documented key-rotation procedure.
 
 ## Remaining milestones
 
 - M5: completed and accepted in AutoCAD 2026 with AES-256-GCM packaging,
   proof-bound server key release and a DPAPI-protected 72-hour device cache.
 - M6: Autodesk bundle, signing, upgrades and AutoCAD 2022-2026 matrix.
-- Web account, checkout and customer self-service remain outside M4.
+- The web account, Asaas checkout, customer portal and protected download are
+  implemented as the commercial layer around the licensing protocol.

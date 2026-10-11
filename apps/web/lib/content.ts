@@ -10,8 +10,9 @@ export const product = {
     'Padronização do fluxo de detalhamento',
   ],
   requirements: [
-    'AutoCAD para Windows — compatibilidade 2022–2026 em validação',
-    'Instalação do plugin e licença ativa para recursos protegidos',
+    'Windows 10 ou 11 de 64 bits',
+    'AutoCAD 2022 a 2026 em uma das versões de download disponíveis',
+    'Internet para ativação e renovação periódica da licença',
   ],
 };
 export const docs = [
@@ -19,99 +20,63 @@ export const docs = [
     slug: 'visao-geral',
     title: 'Visão geral',
     group: 'Comece aqui',
-    summary: 'O que é a biblioteca MLINES e como funciona o fluxo de trabalho.',
+    summary: 'O que é o MLINES e como funciona o fluxo completo.',
     body: [
       [
-        'O que é o MLINES',
-        'O MLINES é a primeira biblioteca do ATLAS CAD, voltada à automação de representações de perfis metálicos no AutoCAD.',
+        'O que é',
+        'O MLINES é a biblioteca do ATLAS CAD para automatizar representações de perfis metálicos no AutoCAD.',
       ],
       [
-        'Como funciona',
-        'O usuário identifica os elementos do desenho e utiliza os comandos de automação para associar perfis e gerar representações MLINE.',
+        'Fluxo completo',
+        'Você assina pelo site, aguarda a confirmação do Asaas, baixa o pacote, gera o identificador da máquina e ativa o plugin.',
       ],
       [
-        'Disponibilidade',
-        'A versão comercial e os requisitos definitivos ainda dependem da validação do plugin e do sistema de licenciamento.',
+        'Compatibilidade',
+        'Há pacotes separados para AutoCAD 2022–2024, AutoCAD 2025/2026 até Update 1.1 e AutoCAD 2026 Update 1.2 ou superior, todos para Windows de 64 bits.',
       ],
     ],
   },
   {
-    slug: 'requisitos',
-    title: 'Requisitos do sistema',
-    group: 'Comece aqui',
-    summary: 'Ambiente e dependências previstas para instalação.',
+    slug: 'compra-e-conta',
+    title: 'Compra e área do cliente',
+    group: 'Primeiros passos',
+    summary: 'Assinatura, pagamento, download e gerenciamento do plano.',
     body: [
       [
-        'Ambiente alvo',
-        'O desenvolvimento está direcionado ao AutoCAD para Windows, com builds distintos para 2022–2024 e 2025–2026.',
+        'Criar a assinatura',
+        'Na página Assinar, informe seus dados, escolha o plano mensal ou anual e selecione cartão de crédito, PIX ou boleto. No cartão, informe também telefone e endereço de cobrança exigidos pelo Asaas e conclua no checkout seguro hospedado; o ATLAS CAD não recebe os dados do cartão. Se você já possui uma conta, entre na Área do Cliente para reabrir ou gerar uma nova cobrança.',
       ],
       [
-        'Verificação de compatibilidade',
-        'A compatibilidade de cada versão precisa ser validada em ambiente real antes do lançamento comercial.',
+        'Liberação',
+        'A criação do checkout ou da cobrança não libera o produto. O download aparece automaticamente na Área do Cliente somente após o webhook de pagamento confirmado ou recebido.',
       ],
       [
-        'Licenciamento',
-        'O modelo previsto vincula uma licença a um dispositivo e admite revalidação periódica.',
+        'Gerenciar o plano',
+        'Na Área do Cliente você consulta a vigência, reabre ou recria um checkout, abre cobranças pendentes, troca de plano e cancela a assinatura. O cancelamento interrompe renovações e revoga a ativação para futuras validações.',
       ],
     ],
   },
   {
     slug: 'instalacao',
-    title: 'Instalação',
+    title: 'Instalação e ativação',
     group: 'Primeiros passos',
-    summary: 'Fluxo planejado de instalação e ativação.',
+    summary: 'Passo a passo desde o ZIP até o primeiro uso no AutoCAD.',
     body: [
       [
-        'Baixar o instalador',
-        'Quando o produto estiver disponível, o instalador será fornecido na área do cliente.',
+        'Baixar e instalar',
+        'Escolha na Área do Cliente o ZIP correspondente à sua versão do AutoCAD. No AutoCAD 2026, consulte ABOUT: use o pacote .NET 8 até Update 1.1 e o pacote .NET 10 no Update 1.2 ou superior. Extraia todos os arquivos, feche o AutoCAD e execute Instalar-AtlasCad.cmd. Não execute o instalador de dentro do ZIP.',
       ],
       [
-        'Ativar a licença',
-        'A ativação será realizada pelo gerenciador de licenças vinculado à conta do comprador.',
+        'Identificar a máquina',
+        'Execute AtlasCad-Identificador.exe. O programa cria AtlasCad-Identificador.txt na Área de Trabalho sem coletar serial de hardware ou dados pessoais. Cole o conteúdo na Área do Cliente.',
       ],
       [
-        'Carregar no AutoCAD',
-        'O plugin deverá ser carregado no AutoCAD compatível. Os passos definitivos serão publicados após testes do instalador.',
-      ],
-    ],
-  },
-  {
-    slug: 'primeiro-uso',
-    title: 'Primeiro uso',
-    group: 'Primeiros passos',
-    summary: 'Entenda a conversão de entidades para MLINE.',
-    body: [
-      [
-        'Preparar o desenho',
-        'Organize as entidades de eixo e as identificações de perfis no desenho.',
+        'Ativar no AutoCAD',
+        'Copie o código de uso único retornado pelo site. Abra o AutoCAD, execute ATLAS_LICENSE_ACTIVATE e cole o código. Em seguida execute ATLAS_INSTALL_CATALOG e ATLAS_DIAGNOSTICS.',
       ],
       [
-        'Executar a automação',
-        'Selecione as entidades e siga o fluxo de identificação de perfis disponível na sua versão do plugin.',
-      ],
-      [
-        'Conferir o resultado',
-        'Verifique o estilo aplicado, a representação geométrica e os layers antes de prosseguir com o projeto.',
-      ],
-    ],
-  },
-  {
-    slug: 'perfis-e-estilos',
-    title: 'Perfis e estilos',
-    group: 'Referência',
-    summary: 'Como o catálogo de estilos é organizado.',
-    body: [
-      [
-        'Biblioteca de estilos',
-        'Os estilos de MLINE representam perfis e podem ter variantes para planta e corte.',
-      ],
-      [
-        'Nomenclatura',
-        'O mecanismo de normalização procura reconhecer variações de escrita dos identificadores de perfis.',
-      ],
-      [
-        'Limitações',
-        'O catálogo comercial completo e as regras exatas de correspondência serão documentados após a homologação.',
+        'Desinstalar',
+        'Feche o AutoCAD e execute Desinstalar-AtlasCad.exe na pasta extraída. O desinstalador remove o plugin e preserva os dados locais da licença para uma futura reinstalação.',
       ],
     ],
   },
@@ -119,19 +84,39 @@ export const docs = [
     slug: 'licenciamento',
     title: 'Licenciamento',
     group: 'Referência',
-    summary: 'Ativação, uso offline e transferência.',
+    summary: 'Vínculo por dispositivo, renovação e funcionamento offline.',
     body: [
       [
-        'Ativação',
-        'A arquitetura prevê autorização vinculada ao dispositivo e validação local de um token assinado.',
+        'Vínculo seguro',
+        'A licença é vinculada a uma chave criptográfica não exportável criada para o usuário atual do Windows. Copiar arquivos para outro computador não copia a licença.',
       ],
       [
         'Uso offline',
-        'A política inicialmente proposta é de até 72 horas sem revalidação, sujeita à implementação e testes.',
+        'Após uma validação online bem-sucedida, os recursos protegidos funcionam por até 72 horas sem conexão. O plugin tenta renovar automaticamente nas últimas 24 horas; o comando ATLAS_LICENSE_RENEW também força uma tentativa.',
       ],
       [
-        'Transferência',
-        'A transferência de licença deverá revogar a ativação anterior no servidor, respeitando o prazo máximo de autorização offline.',
+        'Troca de máquina',
+        'Uma assinatura admite uma máquina ativa. Na Área do Cliente, desative a máquina atual, gere o identificador no novo Windows e solicite outro código. O código antigo não pode ser reutilizado.',
+      ],
+    ],
+  },
+  {
+    slug: 'primeiro-uso',
+    title: 'Primeiro uso',
+    group: 'Uso',
+    summary: 'Valide a instalação e carregue o catálogo protegido.',
+    body: [
+      [
+        'Diagnóstico',
+        'Execute ATLAS_DIAGNOSTICS e confirme que adaptador, licença e catálogo aparecem como válidos.',
+      ],
+      [
+        'Catálogo',
+        'Execute ATLAS_INSTALL_CATALOG após a ativação. A chave do catálogo é entregue apenas a uma máquina com assinatura válida.',
+      ],
+      [
+        'Automação',
+        'Abra uma cópia do desenho, selecione as entidades de eixo e use os comandos do MLINES. Confira estilo, geometria e layers antes de salvar.',
       ],
     ],
   },
@@ -139,19 +124,19 @@ export const docs = [
     slug: 'solucao-de-problemas',
     title: 'Solução de problemas',
     group: 'Suporte',
-    summary: 'Orientações iniciais para diagnosticar erros.',
+    summary: 'Respostas para os erros mais comuns.',
     body: [
       [
-        'O comando não aparece',
-        'Confirme se o plugin foi instalado e carregado na versão correta do AutoCAD.',
+        'Comando não aparece',
+        'Confirme que instalou o pacote correto para sua versão, feche o AutoCAD e reinstale. Verifique se AtlasCad.bundle existe em %APPDATA%\\Autodesk\\ApplicationPlugins. O carregamento é automático; NETLOAD deve ser usado somente para diagnóstico.',
       ],
       [
-        'Perfil não encontrado',
-        'Revise a nomenclatura informada e a disponibilidade do estilo no catálogo.',
+        'Pagamento confirmado sem download',
+        'Atualize a Área do Cliente após alguns minutos. Se continuar bloqueado, informe ao suporte o e-mail da conta e o identificador da cobrança — nunca envie senha ou código completo de ativação.',
       ],
       [
-        'Licença inválida',
-        'Confira a ativação do dispositivo, o prazo offline e a conectividade para revalidação.',
+        'Licença expirada',
+        'Conecte o computador à internet e execute ATLAS_LICENSE_RENEW. Verifique também se data e hora do Windows estão corretas.',
       ],
     ],
   },

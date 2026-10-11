@@ -28,12 +28,16 @@ dotnet run --project tests/Atlas.Licensing.Smoke/Atlas.Licensing.Smoke.csproj
 Build the AutoCAD 2026 development release:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/Build-AtlasRelease.ps1 -Version 1.0.0
+powershell -ExecutionPolicy Bypass -File scripts/Build-AtlasRelease.ps1 -Version 1.0.0 `
+  -PublicLicenseApiUrl https://api.seudominio.com.br
 ```
 
 See [M6 release documentation](docs/M6_RELEASE.md), the
 [implementation plan](docs/IMPLEMENTATION_PLAN.md), and
-[security boundaries](docs/security.md).
+[security boundaries](docs/security.md). For the current local test deployment,
+follow [Cloudflare Tunnel setup](docs/CLOUDFLARE_TUNNEL_LOCAL.md).
+For database inspection from Windows, follow the
+[DBeaver through Podman SSH guide](docs/DBEAVER_PODMAN.md).
 
 Never commit or distribute private LSP/MLN source, plaintext catalog JSON,
 activation state, server signing keys or catalog key rings.

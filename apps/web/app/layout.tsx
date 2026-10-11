@@ -6,13 +6,5 @@ export const metadata: Metadata = {
   description: 'Bibliotecas e automações para otimizar o fluxo de trabalho no AutoCAD.',
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="pt-BR">
-      <body>
-        <Header />
-        <main>{children}</main>
-        <Footer />
-      </body>
-    </html>
-  );
+  return <html lang="pt-BR"><body><Header /><main>{children}</main><Footer /></body></html>;
 }
