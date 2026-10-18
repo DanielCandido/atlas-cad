@@ -88,7 +88,7 @@ public sealed class InstallerPairingStore(
             throw new LicenseServerException("pairing_invalid", "A vinculação aprovada está incompleta.", 409);
 
         await using var license = new NpgsqlCommand("""
-            SELECT l.generation,l.product_id,s.status,s.paid_through
+            SELECT l.generation,l.product_id,s.status,s.paid_through,l.revoked_at,l.manual_valid_until
             FROM atlas_licenses l JOIN atlas_subscriptions s ON s.id=l.subscription_id
             WHERE l.id=$1 AND s.customer_id=$2 FOR UPDATE OF l,s
             """, connection, transaction);
@@ -99,8 +99,9 @@ public sealed class InstallerPairingStore(
             throw new LicenseServerException("license_not_found", "Licença não encontrada.", 404);
         var generation = reader.GetInt32(0);
         var productId = reader.GetString(1);
-        var activeSubscription = reader.GetString(2) == "active" && !reader.IsDBNull(3) &&
-            reader.GetFieldValue<DateTimeOffset>(3) > DateTimeOffset.UtcNow;
+        var activeSubscription = reader.IsDBNull(4) &&
+            ((reader.GetString(2) == "active" && !reader.IsDBNull(3) && reader.GetFieldValue<DateTimeOffset>(3) > DateTimeOffset.UtcNow) ||
+             (!reader.IsDBNull(5) && reader.GetFieldValue<DateTimeOffset>(5) > DateTimeOffset.UtcNow));
         await reader.DisposeAsync();
         if (!activeSubscription)
             throw new LicenseServerException("subscription_inactive", "A assinatura não está ativa.", 403);
@@ -192,7 +193,8 @@ public sealed class InstallerPairingStore(
         await using var license = new NpgsqlCommand("""
             SELECT l.id,l.generation
             FROM atlas_licenses l JOIN atlas_subscriptions s ON s.id=l.subscription_id
-            WHERE s.customer_id=$1 AND s.status='active' AND s.paid_through>now()
+            WHERE s.customer_id=$1 AND l.revoked_at IS NULL
+              AND ((s.status='active' AND s.paid_through>now()) OR l.manual_valid_until>now())
             ORDER BY s.created_at DESC LIMIT 1 FOR UPDATE OF l
             """, connection, transaction);
         license.Parameters.AddWithValue(customerId);

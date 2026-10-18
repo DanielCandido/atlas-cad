@@ -96,6 +96,18 @@ O primeiro start cria as tabelas no PostgreSQL. Configure backup diário do volu
 
 Crie uma compra real de teste pelo site. Confirme, nesta ordem: cliente e assinatura aparecem no Asaas; a conta entra no portal; antes do pagamento não há download; o webhook libera o instalador; o vínculo no navegador ativa apenas a máquina solicitante; o catálogo instala; a renovação funciona; a troca de plano reflete no Asaas; atraso/estorno suspende novas renovações; cancelamento revoga a ativação.
 
+## Gerenciador administrativo
+
+Após iniciar a API pela primeira vez (para aplicar as tabelas administrativas), crie ou redefina o primeiro administrador em um terminal seguro. A senha é solicitada sem ser exibida nem incluída na linha de comando:
+
+```powershell
+dotnet run --project apps/license-manager -- create-admin https://api.seudominio.com.br <admin-key> admin@seudominio.com.br "Administrador"
+```
+
+Entre em `https://seudominio.com.br/admin/entrar`. O painel permite consultar usuários, conceder validade manual, revogar/restaurar uma licença, revogar um dispositivo e cancelar uma assinatura no Asaas. Toda ação exige motivo e fica registrada na auditoria. A chave administrativa continua restrita ao servidor e à CLI; ela nunca deve ser inserida no navegador.
+
+Uma revogação bloqueia novas renovações imediatamente no servidor. Uma máquina desconectada pode continuar operando até o direito offline já emitido expirar, por no máximo 72 horas.
+
 Depois do teste, troque `ASAAS_BASE_URL` para `https://api.asaas.com/v3` e
 `ASAAS_CHECKOUT_BASE_URL` para `https://asaas.com/checkoutSession/show`, use a
 chave de produção, recrie o webhook no ambiente de produção e repita uma

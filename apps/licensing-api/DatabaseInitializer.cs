@@ -62,6 +62,9 @@ public sealed class DatabaseInitializer(NpgsqlDataSource dataSource) : IHostedSe
             generation integer NOT NULL,
             created_at timestamptz NOT NULL DEFAULT now()
         );
+        ALTER TABLE atlas_licenses ADD COLUMN IF NOT EXISTS revoked_at timestamptz;
+        ALTER TABLE atlas_licenses ADD COLUMN IF NOT EXISTS manual_valid_until timestamptz;
+        ALTER TABLE atlas_licenses ADD COLUMN IF NOT EXISTS manual_grant_reason text;
         CREATE TABLE IF NOT EXISTS atlas_activation_codes (
             code_hash text PRIMARY KEY,
             license_id text NOT NULL REFERENCES atlas_licenses(id),
@@ -120,5 +123,38 @@ public sealed class DatabaseInitializer(NpgsqlDataSource dataSource) : IHostedSe
             subscription_id uuid NOT NULL REFERENCES atlas_subscriptions(id),
             paid_at timestamptz NOT NULL DEFAULT now()
         );
+        CREATE TABLE IF NOT EXISTS atlas_admin_users (
+            id uuid PRIMARY KEY,
+            name text NOT NULL,
+            email text NOT NULL UNIQUE,
+            password_hash text NOT NULL,
+            active boolean NOT NULL DEFAULT true,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS atlas_admin_sessions (
+            token_hash text PRIMARY KEY,
+            admin_user_id uuid NOT NULL REFERENCES atlas_admin_users(id) ON DELETE CASCADE,
+            expires_at timestamptz NOT NULL,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_atlas_admin_sessions_user ON atlas_admin_sessions(admin_user_id);
+        CREATE INDEX IF NOT EXISTS ix_atlas_admin_sessions_expiry ON atlas_admin_sessions(expires_at);
+        CREATE TABLE IF NOT EXISTS atlas_admin_audit_logs (
+            id uuid PRIMARY KEY,
+            admin_user_id uuid REFERENCES atlas_admin_users(id) ON DELETE SET NULL,
+            admin_email text NOT NULL,
+            action text NOT NULL,
+            target_type text NOT NULL,
+            target_id text NOT NULL,
+            reason text NOT NULL,
+            before_state jsonb,
+            after_state jsonb,
+            outcome text NOT NULL,
+            ip_address text,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_atlas_admin_audit_target
+            ON atlas_admin_audit_logs(target_type,target_id,created_at DESC);
         """;
 }

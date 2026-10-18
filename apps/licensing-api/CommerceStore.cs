@@ -133,7 +133,8 @@ public sealed class CommerceStore(
             await expire.ExecuteNonQueryAsync(cancellationToken);
         }
         await using var command = new NpgsqlCommand("""
-            SELECT c.name,c.email,s.id,s.plan_code,s.status,s.billing_type,s.paid_through,s.payment_url,l.id,a.device_fingerprint
+            SELECT c.name,c.email,s.id,s.plan_code,s.status,s.billing_type,s.paid_through,s.payment_url,l.id,a.device_fingerprint,
+                   l.revoked_at,l.manual_valid_until
             FROM atlas_customers c
             JOIN atlas_subscriptions s ON s.customer_id=c.id
             LEFT JOIN atlas_licenses l ON l.subscription_id=s.id
@@ -153,6 +154,8 @@ public sealed class CommerceStore(
         var paymentUrl = reader.IsDBNull(7) ? null : reader.GetString(7);
         var licenseId = reader.IsDBNull(8) ? null : reader.GetString(8);
         var machineFingerprint = reader.IsDBNull(9) ? null : reader.GetString(9);
+        var licenseRevoked = !reader.IsDBNull(10);
+        DateTimeOffset? manualValidUntil = reader.IsDBNull(11) ? null : reader.GetFieldValue<DateTimeOffset>(11);
         await reader.DisposeAsync();
 
         var subscriptions = new List<SubscriptionSummary>();
@@ -182,7 +185,7 @@ public sealed class CommerceStore(
                     (historyStatus is "pending_payment" or "past_due" && historyPaymentUrl == null)));
         }
 
-        var entitled = status == "active" && paidThrough > DateTimeOffset.UtcNow;
+        var entitled = !licenseRevoked && ((status == "active" && paidThrough > DateTimeOffset.UtcNow) || manualValidUntil > DateTimeOffset.UtcNow);
         return new PortalSnapshot(customerName, email, planCode,
             options.Plans.TryGetValue(planCode, out var plan) ? plan.Name : planCode,
             status, billingType, paidThrough, entitled, entitled, paymentUrl, licenseId,
@@ -315,7 +318,7 @@ public sealed class CommerceStore(
             "UPDATE atlas_activations SET revoked_at=now() WHERE license_id IN (SELECT id FROM atlas_licenses WHERE subscription_id=$1) AND revoked_at IS NULL",
             cancellationToken, subscription.Id);
         await ExecuteAsync(connection, transaction,
-            "UPDATE atlas_licenses SET generation=generation+1 WHERE subscription_id=$1",
+            "UPDATE atlas_licenses SET generation=generation+1,revoked_at=COALESCE(revoked_at,now()),manual_valid_until=NULL,manual_grant_reason=NULL WHERE subscription_id=$1",
             cancellationToken, subscription.Id);
         await transaction.CommitAsync(cancellationToken);
     }
@@ -329,7 +332,8 @@ public sealed class CommerceStore(
         await using var command = new NpgsqlCommand("""
             SELECT l.id,l.generation
             FROM atlas_licenses l JOIN atlas_subscriptions s ON s.id=l.subscription_id
-            WHERE s.customer_id=$1 AND s.status='active' AND s.paid_through>now()
+            WHERE s.customer_id=$1 AND l.revoked_at IS NULL
+              AND ((s.status='active' AND s.paid_through>now()) OR l.manual_valid_until>now())
             ORDER BY s.created_at DESC LIMIT 1 FOR UPDATE OF l
             """, connection, transaction);
         command.Parameters.AddWithValue(customerId);
@@ -482,6 +486,17 @@ public sealed class CommerceStore(
             else if (!string.IsNullOrWhiteSpace(asaasSubscriptionId) && webhook.Event is "SUBSCRIPTION_DELETED" or "SUBSCRIPTION_INACTIVATED")
             {
                 await ExecuteAsync(connection, transaction, "UPDATE atlas_subscriptions SET status='cancelled',updated_at=now() WHERE asaas_subscription_id=$1", cancellationToken, asaasSubscriptionId);
+                await ExecuteAsync(connection, transaction, """
+                    UPDATE atlas_activations SET revoked_at=COALESCE(revoked_at,now())
+                    WHERE license_id IN (
+                        SELECT l.id FROM atlas_licenses l JOIN atlas_subscriptions s ON s.id=l.subscription_id
+                        WHERE s.asaas_subscription_id=$1) AND revoked_at IS NULL
+                    """, cancellationToken, asaasSubscriptionId);
+                await ExecuteAsync(connection, transaction, """
+                    UPDATE atlas_licenses SET generation=generation+1,revoked_at=COALESCE(revoked_at,now()),
+                        manual_valid_until=NULL,manual_grant_reason=NULL
+                    WHERE subscription_id IN (SELECT id FROM atlas_subscriptions WHERE asaas_subscription_id=$1)
+                    """, cancellationToken, asaasSubscriptionId);
             }
         }
         await ExecuteAsync(connection, transaction, "UPDATE atlas_webhook_events SET processed_at=now() WHERE id=$1", cancellationToken, webhook.Id);

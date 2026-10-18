@@ -48,7 +48,7 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
             SELECT c.license_id,c.generation,l.product_id,l.generation,c.device_fingerprint,c.expires_at,c.used_at,
-                   s.status,s.paid_through
+                   s.status,s.paid_through,l.revoked_at,l.manual_valid_until
             FROM atlas_activation_codes c
             JOIN atlas_licenses l ON l.id=c.license_id
             LEFT JOIN atlas_subscriptions s ON s.id=l.subscription_id
@@ -64,13 +64,17 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
         var expectedFingerprint = reader.GetString(4);
         var expiresAt = reader.GetFieldValue<DateTimeOffset>(5);
         var used = !reader.IsDBNull(6);
-        var subscriptionActive = reader.IsDBNull(7) ||
-            (reader.GetString(7) == "active" && !reader.IsDBNull(8) && reader.GetFieldValue<DateTimeOffset>(8) > DateTimeOffset.UtcNow);
+        var paidActive = !reader.IsDBNull(7) && reader.GetString(7) == "active" && !reader.IsDBNull(8) &&
+            reader.GetFieldValue<DateTimeOffset>(8) > DateTimeOffset.UtcNow;
+        var legacyLicense = reader.IsDBNull(7);
+        var licenseRevoked = !reader.IsDBNull(9);
+        var manualActive = !reader.IsDBNull(10) && reader.GetFieldValue<DateTimeOffset>(10) > DateTimeOffset.UtcNow;
         await reader.DisposeAsync();
         if (used) throw new LicenseServerException("activation_code_invalid", "Activation code is invalid or already used.", 403);
         if (expiresAt <= DateTimeOffset.UtcNow) throw new LicenseServerException("activation_code_expired", "Activation code has expired.", 403);
         if (codeGeneration != licenseGeneration) throw new LicenseServerException("activation_code_revoked", "Activation code belongs to an old license generation.", 403);
-        if (!subscriptionActive) throw new LicenseServerException("subscription_inactive", "The subscription is not active.", 403);
+        if (licenseRevoked) throw new LicenseServerException("license_revoked", "The license has been revoked.", 403);
+        if (!legacyLicense && !paidActive && !manualActive) throw new LicenseServerException("subscription_inactive", "The subscription is not active.", 403);
         if (!string.IsNullOrEmpty(expectedFingerprint) && !FixedEquals(expectedFingerprint, fingerprint))
             throw new LicenseServerException("device_mismatch", "Activation code belongs to another machine.", 403);
         var activationId = "act_" + Guid.NewGuid().ToString("N");
@@ -162,7 +166,7 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
     {
         await using var command = new NpgsqlCommand("""
             SELECT a.license_id,l.product_id,a.generation,l.generation,a.device_public_key_x,a.device_public_key_y,
-                   a.device_fingerprint,a.last_renewed_at,a.revoked_at,s.status,s.paid_through
+                   a.device_fingerprint,a.last_renewed_at,a.revoked_at,s.status,s.paid_through,l.revoked_at,l.manual_valid_until
             FROM atlas_activations a JOIN atlas_licenses l ON l.id=a.license_id
             LEFT JOIN atlas_subscriptions s ON s.id=l.subscription_id WHERE a.id=$1 FOR UPDATE OF a,l
             """, connection, transaction);
@@ -171,14 +175,17 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
         if (!await reader.ReadAsync(cancellationToken)) throw new LicenseServerException("activation_not_found", "Activation was not found.", 404);
         return new ActivationRow(reader.GetString(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3),
             reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetFieldValue<DateTimeOffset>(7), !reader.IsDBNull(8),
-            reader.IsDBNull(9) ? null : reader.GetString(9), reader.IsDBNull(10) ? null : reader.GetFieldValue<DateTimeOffset>(10));
+            reader.IsDBNull(9) ? null : reader.GetString(9), reader.IsDBNull(10) ? null : reader.GetFieldValue<DateTimeOffset>(10),
+            !reader.IsDBNull(11), reader.IsDBNull(12) ? null : reader.GetFieldValue<DateTimeOffset>(12));
     }
 
     private static void EnsureActive(ActivationRow row)
     {
-        if (row.Revoked || row.Generation != row.LicenseGeneration)
+        if (row.Revoked || row.LicenseRevoked || row.Generation != row.LicenseGeneration)
             throw new LicenseServerException("activation_revoked", "Activation has been revoked.", 403);
-        if (row.SubscriptionStatus != null && (row.SubscriptionStatus != "active" || row.PaidThrough <= DateTimeOffset.UtcNow))
+        var paidActive = row.SubscriptionStatus == "active" && row.PaidThrough > DateTimeOffset.UtcNow;
+        var manualActive = row.ManualValidUntil > DateTimeOffset.UtcNow;
+        if (row.SubscriptionStatus != null && !paidActive && !manualActive)
             throw new LicenseServerException("subscription_inactive", "The subscription is not active.", 403);
     }
 
@@ -217,5 +224,6 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
     }
 
     private sealed record ActivationRow(string LicenseId, string ProductId, int Generation, int LicenseGeneration, string X, string Y,
-        string Fingerprint, DateTimeOffset LastRenewedAt, bool Revoked, string? SubscriptionStatus, DateTimeOffset? PaidThrough);
+        string Fingerprint, DateTimeOffset LastRenewedAt, bool Revoked, string? SubscriptionStatus, DateTimeOffset? PaidThrough,
+        bool LicenseRevoked, DateTimeOffset? ManualValidUntil);
 }

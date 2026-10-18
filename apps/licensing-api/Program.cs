@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Atlas.Licensing;
 using Atlas.Licensing.Api;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Npgsql;
 using System.Text.Json;
@@ -18,6 +19,7 @@ builder.Services.AddSingleton<PostgresLicensingStore>();
 builder.Services.AddSingleton<CommerceStore>();
 builder.Services.AddSingleton<InstallerPairingStore>();
 builder.Services.AddSingleton<CatalogKeyProvider>();
+builder.Services.AddSingleton<AdminStore>();
 builder.Services.AddHttpClient<AsaasClient>();
 builder.Services.AddRateLimiter(options =>
 {
@@ -28,6 +30,14 @@ builder.Services.AddRateLimiter(options =>
         {
             PermitLimit = 20,
             Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+    options.AddPolicy("admin-login", context => RateLimitPartition.GetFixedWindowLimiter(
+        ClientPartitionKey(context),
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(5),
             QueueLimit = 0
         }));
 });
@@ -53,6 +63,95 @@ app.MapGet("/api/v1/plans", (CommerceOptions options) => Results.Ok(options.Plan
     code = plan.Code, name = plan.Name, price = plan.Price, cycle = plan.Cycle
 })));
 app.MapGet("/api/v1/signing-key", (SigningKeyProvider signing) => Results.Ok(signing.PublicDescriptor));
+
+app.MapPost("/api/v1/admin/auth/login", async (
+    AdminLoginRequest request, AdminStore store, CancellationToken cancellationToken) =>
+    Results.Ok(await store.LoginAsync(request, cancellationToken))).RequireRateLimiting("admin-login");
+
+app.MapGet("/api/v1/admin/auth/me", async (
+    HttpContext context, AdminStore store, CancellationToken cancellationToken) =>
+    Results.Ok(await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken)));
+
+app.MapPost("/api/v1/admin/auth/logout", async (
+    HttpContext context, AdminStore store, CancellationToken cancellationToken) =>
+{
+    await store.LogoutAsync(context.Request.Headers.Authorization, cancellationToken);
+    return Results.NoContent();
+});
+
+app.MapPut("/api/v1/admin/operators", async (
+    HttpContext context, AdminBootstrapRequest request, AdminStore store,
+    LicensingServerOptions options, CancellationToken cancellationToken) =>
+{
+    if (!AdminKeyMatches(context, options.AdminApiKey)) return Results.Unauthorized();
+    await store.BootstrapAsync(request, cancellationToken);
+    return Results.NoContent();
+}).RequireRateLimiting("license-write");
+
+app.MapGet("/api/v1/admin/users", async (
+    HttpContext context, AdminStore store, string? q, string? plan, string? subscriptionStatus,
+    string? accessStatus, string? device, string? expiry, string? cursor, int? pageSize,
+    CancellationToken cancellationToken) =>
+{
+    await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    return Results.Ok(await store.ListUsersAsync(q, plan, subscriptionStatus, accessStatus, device, expiry,
+        cursor, pageSize ?? 50, cancellationToken));
+});
+
+app.MapGet("/api/v1/admin/users/{customerId:guid}", async (
+    HttpContext context, Guid customerId, AdminStore store, CancellationToken cancellationToken) =>
+{
+    await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    return Results.Ok(await store.GetUserAsync(customerId, cancellationToken));
+});
+
+app.MapPut("/api/v1/admin/licenses/{licenseId}/manual-grant", async (
+    HttpContext context, string licenseId, AdminManualGrantRequest request, AdminStore store, CancellationToken cancellationToken) =>
+{
+    var admin = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    await store.GrantManualAsync(admin, licenseId, request, ClientIp(context), cancellationToken);
+    return Results.NoContent();
+}).RequireRateLimiting("license-write");
+
+app.MapDelete("/api/v1/admin/licenses/{licenseId}/manual-grant", async (
+    HttpContext context, string licenseId, [FromBody] AdminReasonRequest request, AdminStore store, CancellationToken cancellationToken) =>
+{
+    var admin = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    await store.ClearManualAsync(admin, licenseId, request, ClientIp(context), cancellationToken);
+    return Results.NoContent();
+}).RequireRateLimiting("license-write");
+
+app.MapPost("/api/v1/admin/licenses/{licenseId}/revoke", async (
+    HttpContext context, string licenseId, AdminReasonRequest request, AdminStore store, CancellationToken cancellationToken) =>
+{
+    var admin = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    await store.RevokeLicenseAsync(admin, licenseId, request, ClientIp(context), cancellationToken);
+    return Results.NoContent();
+}).RequireRateLimiting("license-write");
+
+app.MapPost("/api/v1/admin/licenses/{licenseId}/restore", async (
+    HttpContext context, string licenseId, AdminReasonRequest request, AdminStore store, CancellationToken cancellationToken) =>
+{
+    var admin = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    await store.RestoreLicenseAsync(admin, licenseId, request, ClientIp(context), cancellationToken);
+    return Results.NoContent();
+}).RequireRateLimiting("license-write");
+
+app.MapPost("/api/v1/admin/activations/{activationId}/revoke", async (
+    HttpContext context, string activationId, AdminReasonRequest request, AdminStore store, CancellationToken cancellationToken) =>
+{
+    var admin = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    await store.RevokeActivationAsync(admin, activationId, request, ClientIp(context), cancellationToken);
+    return Results.NoContent();
+}).RequireRateLimiting("license-write");
+
+app.MapPost("/api/v1/admin/users/{customerId:guid}/subscription/cancel", async (
+    HttpContext context, Guid customerId, AdminReasonRequest request, AdminStore store, CancellationToken cancellationToken) =>
+{
+    var admin = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    await store.CancelSubscriptionAsync(admin, customerId, request, ClientIp(context), cancellationToken);
+    return Results.NoContent();
+}).RequireRateLimiting("license-write");
 
 app.MapPost("/api/v1/activations", async (
     ActivationRequest request, PostgresLicensingStore store, SigningKeyProvider signing, CancellationToken cancellationToken) =>
@@ -236,4 +335,11 @@ static string ClientPartitionKey(HttpContext context)
         System.Net.IPAddress.TryParse(cloudflareIp.ToString(), out var parsed))
         return parsed.ToString();
     return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+}
+
+static string? ClientIp(HttpContext context)
+{
+    if (context.Request.Headers.TryGetValue("CF-Connecting-IP", out var cloudflareIp) &&
+        System.Net.IPAddress.TryParse(cloudflareIp.ToString(), out var parsed)) return parsed.ToString();
+    return context.Connection.RemoteIpAddress?.ToString();
 }

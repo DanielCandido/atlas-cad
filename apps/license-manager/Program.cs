@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Atlas.Licensing;
 
@@ -17,6 +18,7 @@ static async Task<int> MainAsync(string[] arguments)
             "import-catalog-key" => ImportCatalogKey(arguments),
             "issue" => await IssueAsync(arguments),
             "transfer" => await TransferAsync(arguments),
+            "create-admin" => await CreateAdminAsync(arguments),
             "simulate-device" => await SimulateDeviceAsync(arguments),
             "simulate-revocation" => await SimulateRevocationAsync(arguments),
             "simulate-catalog" => await SimulateCatalogAsync(arguments),
@@ -140,6 +142,44 @@ static async Task<int> TransferAsync(string[] arguments)
     using var response = await client.PostAsync("api/v1/admin/licenses/" + Uri.EscapeDataString(arguments[3]) + "/transfer", null);
     Console.WriteLine(await ReadSuccessAsync(response));
     return 0;
+}
+
+static async Task<int> CreateAdminAsync(string[] arguments)
+{
+    if (arguments.Length != 5) return Usage();
+    Console.Write("Senha (mínimo 12 caracteres): ");
+    var password = ReadSecret();
+    Console.WriteLine();
+    Console.Write("Confirme a senha: ");
+    var confirmation = ReadSecret();
+    Console.WriteLine();
+    if (password != confirmation) throw new InvalidOperationException("As senhas não conferem.");
+    using var client = AdminClient(arguments[1], arguments[2]);
+    using var response = await client.PutAsJsonAsync("api/v1/admin/operators", new
+    {
+        email = arguments[3],
+        name = arguments[4],
+        password
+    });
+    await ReadSuccessAsync(response);
+    Console.WriteLine("Administrador criado ou atualizado: " + arguments[3]);
+    return 0;
+}
+
+static string ReadSecret()
+{
+    var value = new StringBuilder();
+    while (true)
+    {
+        var key = Console.ReadKey(intercept: true);
+        if (key.Key == ConsoleKey.Enter) return value.ToString();
+        if (key.Key == ConsoleKey.Backspace)
+        {
+            if (value.Length > 0) value.Length--;
+            continue;
+        }
+        if (!char.IsControl(key.KeyChar)) value.Append(key.KeyChar);
+    }
 }
 
 static async Task<int> SimulateDeviceAsync(string[] arguments)
@@ -296,6 +336,7 @@ static int Usage()
     Console.Error.WriteLine("  import-catalog-key <target-ring.json> <source-ring.json> <key-id>");
     Console.Error.WriteLine("  issue <api-base> <admin-key> <customer-reference>");
     Console.Error.WriteLine("  transfer <api-base> <admin-key> <license-id>");
+    Console.Error.WriteLine("  create-admin <api-base> <admin-key> <email> <name>");
     Console.Error.WriteLine("  simulate-device <api-base> <activation-code>");
     Console.Error.WriteLine("  simulate-revocation <api-base> <admin-key> <license-id> <activation-code>");
     Console.Error.WriteLine("  simulate-catalog <api-base> <activation-code> <package.atlascatalog>");
