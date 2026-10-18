@@ -90,6 +90,24 @@ public sealed class DatabaseInitializer(NpgsqlDataSource dataSource) : IHostedSe
             created_at timestamptz NOT NULL DEFAULT now(),
             PRIMARY KEY (activation_id, nonce, kind)
         );
+        CREATE TABLE IF NOT EXISTS atlas_installer_pairings (
+            id text PRIMARY KEY,
+            user_code_hash text NOT NULL UNIQUE,
+            device_public_key_x text NOT NULL,
+            device_public_key_y text NOT NULL,
+            device_fingerprint text NOT NULL,
+            detected_versions jsonb NOT NULL,
+            status text NOT NULL,
+            customer_id uuid REFERENCES atlas_customers(id) ON DELETE SET NULL,
+            license_id text REFERENCES atlas_licenses(id) ON DELETE SET NULL,
+            replace_existing boolean NOT NULL DEFAULT false,
+            activation_id text REFERENCES atlas_activations(id) ON DELETE SET NULL,
+            expires_at timestamptz NOT NULL,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            approved_at timestamptz,
+            completed_at timestamptz
+        );
+        CREATE INDEX IF NOT EXISTS ix_atlas_installer_pairings_expiry ON atlas_installer_pairings(expires_at);
         CREATE TABLE IF NOT EXISTS atlas_webhook_events (
             id text PRIMARY KEY,
             event_type text NOT NULL,

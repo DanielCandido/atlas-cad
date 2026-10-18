@@ -942,6 +942,10 @@ h1 span,
 .notice p {
   margin: 8px 0 0;
 }
+.pairing-card { margin-top: 32px; }
+.pairing-code { display: inline-block; font-family: monospace; font-size: 1.25rem; letter-spacing: .12em; }
+.pairing-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+
 @media (max-width: 900px) {
   .hero-grid,
   .product-hero,

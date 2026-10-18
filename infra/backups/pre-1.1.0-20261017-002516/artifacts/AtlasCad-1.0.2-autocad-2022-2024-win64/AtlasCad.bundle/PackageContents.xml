@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0"
+                    AutodeskProduct="AutoCAD"
+                    ProductType="Application"
+                    Name="ATLAS CAD"
+                    Description="Conversao licenciada de eixos de perfis em MLINE"
+                    AppVersion="1.0.2"
+                    ProductCode="{FE89D3FA-2D69-FD43-6DA5-EFC72014F064}"
+                    UpgradeCode="{CC6867A2-63DD-4C96-98B9-A0D5A69E069E}">
+  <CompanyDetails Name="ATLAS CAD" />
+  <Components Description="ATLAS CAD for AutoCAD 2022, 2023 and 2024">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.1" SeriesMax="R24.3" />
+    <ComponentEntry AppName="ATLAS CAD Adapter"
+                    AppDescription="Licensed protected-catalog AutoCAD adapter"
+                    AppType=".Net"
+                    Version="1.0.2"
+                    ModuleName="./Contents/Windows/2022-2024/Atlas.AutoCAD.Adapter.2022.dll"
+                    LoadOnAutoCADStartup="True">
+      <Commands GroupName="ATLAS_CAD_COMMANDS">
+        <Command Global="ATLAS_LICENSE_STATUS" Local="ATLAS_LICENSE_STATUS" />
+        <Command Global="ATLAS_LICENSE_ACTIVATE" Local="ATLAS_LICENSE_ACTIVATE" />
+        <Command Global="ATLAS_LICENSE_RENEW" Local="ATLAS_LICENSE_RENEW" />
+        <Command Global="ATLAS_INSTALL_CATALOG" Local="ATLAS_INSTALL_CATALOG" />
+        <Command Global="ATLAS_DIAGNOSTICS" Local="ATLAS_DIAGNOSTICS" />
+      </Commands>
+    </ComponentEntry>
+    <ComponentEntry AppName="ATLAS CAD AutoLISP Loader"
+                    AppDescription="Loads the public bridge and compiled STEELFLOW runtime"
+                    AppType="Lisp"
+                    Version="1.0.2"
+                    ModuleName="./Contents/Windows/2022-2024/atlas-loader.lsp"
+                    LoadOnAutoCADStartup="True" />
+  </Components>
+</ApplicationPackage>

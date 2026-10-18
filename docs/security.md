@@ -6,6 +6,11 @@
   protection or universal client secret.
 - The per-device private key is a named, non-exportable Windows CNG key. The
   server stores only public key material and a fingerprint.
+- Installer pairing uses a ten-minute browser confirmation and fresh ECDSA
+  proofs for creation, polling and completion. Approval alone does not revoke a
+  previous machine; replacement and activation occur atomically when the new
+  device proves possession of its private key. Completion is idempotent for
+  safe retry after a lost response.
 - Entitlements are bound to product, activation, generation and device and
   expire after 72 hours. Missing, malformed, tampered, copied or expired local
   state is denied by protected C# operations.

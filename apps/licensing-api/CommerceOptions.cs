@@ -10,9 +10,8 @@ public sealed class CommerceOptions
     public string AsaasApiKey { get; init; } = string.Empty;
     public string AsaasWebhookToken { get; init; } = string.Empty;
     public string PublicWebUrl { get; init; } = string.Empty;
-    public string DownloadPath { get; init; } = string.Empty;
-    public IReadOnlyDictionary<string, string> DownloadPaths { get; init; } = new Dictionary<string, string>();
-    public string MachineIdentifierPath { get; init; } = string.Empty;
+    public string InstallerPath { get; init; } = string.Empty;
+    public string UninstallerPath { get; init; } = string.Empty;
     public IReadOnlyDictionary<string, PlanDefinition> Plans { get; init; } = new Dictionary<string, PlanDefinition>();
 
     public static CommerceOptions FromEnvironment(string contentRoot)
@@ -39,8 +38,6 @@ public sealed class CommerceOptions
             throw new InvalidOperationException("ASAAS_CHECKOUT_BASE_URL must use HTTPS.");
         if (!Uri.TryCreate(publicWebUrl, UriKind.Absolute, out _)) throw new InvalidOperationException("ATLAS_PUBLIC_WEB_URL must be absolute.");
         if (webhookToken.Length < 32) throw new InvalidOperationException("ASAAS_WEBHOOK_TOKEN must contain at least 32 characters.");
-        var defaultDownloadPath = Path.GetFullPath(Environment.GetEnvironmentVariable("ATLAS_DOWNLOAD_PATH") ??
-            Path.Combine(contentRoot, "App_Data", "AtlasCad-latest-win64.zip"));
         return new CommerceOptions
         {
             ConnectionString = Required("ConnectionStrings__Atlas"),
@@ -49,17 +46,10 @@ public sealed class CommerceOptions
             AsaasApiKey = Required("ASAAS_API_KEY"),
             AsaasWebhookToken = webhookToken,
             PublicWebUrl = publicWebUrl,
-            DownloadPath = defaultDownloadPath,
-            DownloadPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["autocad-2022-2024"] = Path.GetFullPath(Environment.GetEnvironmentVariable("ATLAS_DOWNLOAD_AUTOCAD_2022_2024_PATH") ??
-                    Path.Combine(contentRoot, "App_Data", "AtlasCad-autocad-2022-2024-win64.zip")),
-                ["autocad-2025-2026-1-1"] = Path.GetFullPath(Environment.GetEnvironmentVariable("ATLAS_DOWNLOAD_AUTOCAD_2025_2026_1_1_PATH") ??
-                    Path.Combine(contentRoot, "App_Data", "AtlasCad-autocad-2025-2026-1-1-win64.zip")),
-                ["autocad-2026-1-2-plus"] = Path.GetFullPath(Environment.GetEnvironmentVariable("ATLAS_DOWNLOAD_AUTOCAD_2026_1_2_PLUS_PATH") ?? defaultDownloadPath)
-            },
-            MachineIdentifierPath = Path.GetFullPath(Environment.GetEnvironmentVariable("ATLAS_MACHINE_IDENTIFIER_PATH") ??
-                Path.Combine(contentRoot, "App_Data", "AtlasCad-Identificador.exe")),
+            InstallerPath = Path.GetFullPath(Environment.GetEnvironmentVariable("ATLAS_INSTALLER_PATH") ??
+                Path.Combine(contentRoot, "App_Data", "Instalador-AtlasCad.exe")),
+            UninstallerPath = Path.GetFullPath(Environment.GetEnvironmentVariable("ATLAS_UNINSTALLER_PATH") ??
+                Path.Combine(contentRoot, "App_Data", "Desinstalar-AtlasCad.exe")),
             Plans = new Dictionary<string, PlanDefinition>(StringComparer.OrdinalIgnoreCase)
             {
                 ["monthly"] = new("monthly", "MLINES Mensal", monthly, "MONTHLY"),

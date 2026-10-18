@@ -13,6 +13,7 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: dotnet test tests/Atlas.Core.Tests/Atlas.Core.Tests.csproj
+      - run: dotnet test tests/Atlas.Installer.Tests/Atlas.Installer.Tests.csproj
       - run: dotnet run --project tests/Atlas.Licensing.Smoke/Atlas.Licensing.Smoke.csproj
       - shell: powershell
         run: ./scripts/verify-private-assets.ps1

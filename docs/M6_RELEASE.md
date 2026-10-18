@@ -17,32 +17,21 @@ never copied into the bundle.
 
 `scripts/Build-AtlasRelease.ps1` performs a Release build, compiles FAS, creates
 the versioned manifest, copies only allow-listed runtime inputs, emits
-`SHA256SUMS.txt`, validates the bundle and creates a ZIP. The validator rejects
+`SHA256SUMS.txt`, validates the embedded bundles and creates the unified installer. The validator rejects
 MLN/MLNX, private LSP, plaintext catalogs, private keys, Autodesk API DLLs,
 missing manifest modules, path escapes, hash mismatches and representative
 profile names inside the encrypted package.
 
-The development artifact is unsigned. A production build must provide an
-Authenticode certificate thumbprint and `-RequireCodeSigning`; the build then
+Every release must provide an Authenticode certificate thumbprint; the build
 uses `signtool sign` with SHA-256 and an RFC 3161 timestamp and verifies the
 result before packaging. The signing private key is never a repository input.
 
 ## Install, upgrade and recovery
 
-`Install-AtlasCad.ps1` requires AutoCAD to be closed, validates the source,
-copies to a staging bundle, validates again, and atomically swaps it into place.
-An existing bundle is retained as a temporary rollback copy until the swap
-succeeds. Downgrades require `-AllowDowngrade`.
-
-The distributable ZIP places `Instalar-AtlasCad.cmd`, the installer, validator,
-uninstaller and `AtlasCad.bundle` at its root. A normal user can extract the ZIP
-and double-click the CMD launcher; administrative privileges are not required
-for the default current-user installation.
-
-`Uninstall-AtlasCad.ps1` removes only the exact bundle directory. User license,
-device key, protected catalog and diagnostics are preserved by default.
-`-PurgeUserData` requires explicit confirmation and permanently removes that
-local state.
+The unified installer requires AutoCAD to be closed, validates the embedded
+payload, stages each selected bundle and atomically swaps it into place. The
+same signed executable is published as `Desinstalar-AtlasCad.exe`; in that mode
+it removes all managed ATLAS bundles while preserving user license data.
 
 ## Diagnostics and privacy
 

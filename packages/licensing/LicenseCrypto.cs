@@ -79,6 +79,13 @@ public static class LicenseCrypto
     public static byte[] CatalogKeyProofBytes(CatalogKeyRequest request) => Encoding.UTF8.GetBytes(
         "catalog-key\n" + request.ProtocolVersion + "\n" + request.ActivationId + "\n" + request.KeyId + "\n" + request.Nonce);
 
+    public static byte[] InstallerPairingCreateProofBytes(InstallerPairingCreateRequest request) => Encoding.UTF8.GetBytes(
+        "installer-pairing-create\n" + request.ProtocolVersion + "\n" + request.DevicePublicKeyX + "\n" +
+        request.DevicePublicKeyY + "\n" + request.Nonce + "\n" + string.Join("|", request.DetectedVersions));
+
+    public static byte[] InstallerPairingProofBytes(string operation, string pairingId, InstallerPairingProofRequest request) => Encoding.UTF8.GetBytes(
+        "installer-pairing-" + operation + "\n" + request.ProtocolVersion + "\n" + pairingId + "\n" + request.Nonce);
+
     public static ECParameters PublicParameters(string x, string y) => new ECParameters
     {
         Curve = ECCurve.NamedCurves.nistP256,

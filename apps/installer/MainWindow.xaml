@@ -1,0 +1,38 @@
+<Window x:Class="Atlas.Installer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Instalador ATLAS CAD" Width="720" Height="560"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="#08141D" Foreground="#E9F2F7">
+  <Grid Margin="42">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <TextBlock Text="ATLAS CAD" Foreground="#52D3AE" FontWeight="Bold" FontSize="15" />
+    <StackPanel Grid.Row="1" Margin="0,18,0,22">
+      <TextBlock Text="Instalação simples e segura." FontSize="32" FontWeight="SemiBold" />
+      <TextBlock Text="O assistente detecta o AutoCAD, instala, vincula sua conta e ativa a licença." Margin="0,10,0,0" Foreground="#A8BCC8" FontSize="15" />
+    </StackPanel>
+    <Border Grid.Row="2" Background="#10232F" CornerRadius="8" Padding="24">
+      <StackPanel>
+        <TextBlock x:Name="StepTitle" Text="Verificando este computador…" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock x:Name="StatusText" TextWrapping="Wrap" Margin="0,14,0,0" Foreground="#C7D7DF" FontSize="14" />
+        <ListBox x:Name="VersionsList" Margin="0,18,0,0" MinHeight="100" Background="#0B1B25" Foreground="#E9F2F7" BorderThickness="0" />
+        <Border x:Name="CodePanel" Visibility="Collapsed" Margin="0,20,0,0" Background="#071119" CornerRadius="6" Padding="18">
+          <StackPanel>
+            <TextBlock Text="CONFIRA ESTE CÓDIGO NO NAVEGADOR" Foreground="#8FA8B5" FontSize="11" />
+            <TextBlock x:Name="PairingCode" FontFamily="Consolas" FontSize="28" FontWeight="Bold" Margin="0,6,0,0" />
+          </StackPanel>
+        </Border>
+        <ProgressBar x:Name="Progress" Height="6" Margin="0,22,0,0" IsIndeterminate="True" Visibility="Collapsed" Foreground="#52D3AE" />
+      </StackPanel>
+    </Border>
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+      <Button x:Name="CloseButton" Content="Cancelar" Click="CloseButton_Click" Padding="22,10" Margin="0,0,12,0" Background="#203644" Foreground="White" BorderThickness="0" />
+      <Button x:Name="InstallButton" Content="Instalar e ativar" Click="InstallButton_Click" Padding="24,10" Background="#52D3AE" Foreground="#061018" BorderThickness="0" FontWeight="Bold" IsEnabled="False" />
+    </StackPanel>
+  </Grid>
+</Window>

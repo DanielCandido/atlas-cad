@@ -31,7 +31,20 @@ Assert("catalog-confidentiality", !System.Text.Encoding.Latin1.GetString(package
 var tampered = (byte[])packageBytes.Clone(); tampered[tampered.Length - 1] ^= 0x01;
 Assert("catalog-tamper", RejectsCatalog(tampered, catalogKey));
 Assert("catalog-wrong-key", RejectsCatalog(packageBytes, RandomNumberGenerator.GetBytes(32)));
-Console.WriteLine("Atlas licensing/catalog smoke: 10/10 passed.");
+var pairing = new InstallerPairingCreateRequest
+{
+    ProtocolVersion = LicensingProtocol.CurrentVersion,
+    DevicePublicKeyX = LicenseCrypto.Base64UrlEncode(device.ExportParameters(false).Q.X!),
+    DevicePublicKeyY = LicenseCrypto.Base64UrlEncode(device.ExportParameters(false).Q.Y!),
+    Nonce = LicenseCrypto.Base64UrlEncode(RandomNumberGenerator.GetBytes(24)),
+    DetectedVersions = new List<string> { "AutoCAD 2026" }
+};
+pairing.Proof = LicenseCrypto.Base64UrlEncode(device.SignData(LicenseCrypto.InstallerPairingCreateProofBytes(pairing), HashAlgorithmName.SHA256));
+Assert("pairing-proof", device.VerifyData(LicenseCrypto.InstallerPairingCreateProofBytes(pairing), LicenseCrypto.Base64UrlDecode(pairing.Proof), HashAlgorithmName.SHA256));
+var poll = new InstallerPairingProofRequest { ProtocolVersion = 1, Nonce = LicenseCrypto.Base64UrlEncode(RandomNumberGenerator.GetBytes(24)) };
+poll.Proof = LicenseCrypto.Base64UrlEncode(device.SignData(LicenseCrypto.InstallerPairingProofBytes("poll", "pair_test", poll), HashAlgorithmName.SHA256));
+Assert("pairing-operation-bound", !device.VerifyData(LicenseCrypto.InstallerPairingProofBytes("complete", "pair_test", poll), LicenseCrypto.Base64UrlDecode(poll.Proof), HashAlgorithmName.SHA256));
+Console.WriteLine("Atlas licensing/catalog smoke: 12/12 passed.");
 return;
 
 static EntitlementClaims Claims(long now, string fingerprint) => new()

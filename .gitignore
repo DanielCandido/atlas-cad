@@ -4,6 +4,7 @@ bin/
 obj/
 .tmp/
 .packages/
+.pnpm-store/
 .env
 .env.local
 .env.tunnel*

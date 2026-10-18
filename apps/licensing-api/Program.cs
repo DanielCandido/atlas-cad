@@ -16,6 +16,7 @@ builder.Services.AddHostedService<DatabaseInitializer>();
 builder.Services.AddSingleton<SigningKeyProvider>();
 builder.Services.AddSingleton<PostgresLicensingStore>();
 builder.Services.AddSingleton<CommerceStore>();
+builder.Services.AddSingleton<InstallerPairingStore>();
 builder.Services.AddSingleton<CatalogKeyProvider>();
 builder.Services.AddHttpClient<AsaasClient>();
 builder.Services.AddRateLimiter(options =>
@@ -60,6 +61,20 @@ app.MapPost("/api/v1/activations", async (
     catch (LicenseServerException exception)
     { return Results.Json(new LicenseApiError { ErrorCode = exception.Code, Message = exception.Message }, statusCode: exception.StatusCode); }
 }).RequireRateLimiting("license-write");
+
+app.MapPost("/api/v1/installer/pairings", async (
+    InstallerPairingCreateRequest request, InstallerPairingStore store, CancellationToken cancellationToken) =>
+    Results.Ok(await store.CreateAsync(request, cancellationToken))).RequireRateLimiting("license-write");
+
+app.MapPost("/api/v1/installer/pairings/{pairingId}/poll", async (
+    string pairingId, InstallerPairingProofRequest request, InstallerPairingStore store, CancellationToken cancellationToken) =>
+    Results.Ok(await store.PollAsync(pairingId, request, cancellationToken))).RequireRateLimiting("license-write");
+
+app.MapPost("/api/v1/installer/pairings/{pairingId}/complete", async (
+    string pairingId, InstallerPairingProofRequest request, InstallerPairingStore store,
+    SigningKeyProvider signing, CancellationToken cancellationToken) =>
+    Results.Ok(signing.Issue(await store.CompleteAsync(pairingId, request, cancellationToken))))
+    .RequireRateLimiting("license-write");
 
 app.MapPost("/api/v1/renewals", async (
     RenewalRequest request, PostgresLicensingStore store, SigningKeyProvider signing, CancellationToken cancellationToken) =>
@@ -146,31 +161,44 @@ app.MapDelete("/api/v1/portal/machines", async (HttpContext context, CommerceSto
     return Results.NoContent();
 }).RequireRateLimiting("license-write");
 
-app.MapGet("/api/v1/portal/download", async (HttpContext context, CommerceStore store, CancellationToken cancellationToken) =>
+app.MapGet("/api/v1/portal/pairings/{userCode}", async (
+    HttpContext context, string userCode, CommerceStore commerce, InstallerPairingStore pairings, CancellationToken cancellationToken) =>
 {
-    var customerId = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
-    var path = await store.RequireDownloadAsync(customerId, cancellationToken);
-    return Results.File(path, "application/zip", Path.GetFileName(path), enableRangeProcessing: true);
+    var customerId = await commerce.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    return Results.Ok(await pairings.GetPortalAsync(customerId, userCode, cancellationToken));
 });
 
-app.MapGet("/api/v1/portal/download/{edition}", async (
-    HttpContext context, string edition, CommerceStore store, CancellationToken cancellationToken) =>
+app.MapPost("/api/v1/portal/pairings/{userCode}/approve", async (
+    HttpContext context, string userCode, PairingDecisionRequest request, CommerceStore commerce,
+    InstallerPairingStore pairings, CancellationToken cancellationToken) =>
 {
-    var customerId = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
-    var path = await store.RequireDownloadAsync(customerId, edition, cancellationToken);
-    return Results.File(path, "application/zip", Path.GetFileName(path), enableRangeProcessing: true);
-});
+    var customerId = await commerce.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    await pairings.ApproveAsync(customerId, userCode, request.ReplaceExisting, cancellationToken);
+    return Results.NoContent();
+}).RequireRateLimiting("license-write");
 
-app.MapGet("/api/v1/portal/machine-identifier", async (
+app.MapPost("/api/v1/portal/pairings/{userCode}/reject", async (
+    HttpContext context, string userCode, CommerceStore commerce, InstallerPairingStore pairings, CancellationToken cancellationToken) =>
+{
+    var customerId = await commerce.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    await pairings.RejectAsync(customerId, userCode, cancellationToken);
+    return Results.NoContent();
+}).RequireRateLimiting("license-write");
+
+app.MapGet("/api/v1/portal/installer", async (
     HttpContext context, CommerceStore store, CancellationToken cancellationToken) =>
 {
     var customerId = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
-    var path = await store.RequireMachineIdentifierDownloadAsync(customerId, cancellationToken);
-    return Results.File(
-        path,
-        "application/vnd.microsoft.portable-executable",
-        "AtlasCad-Identificador.exe",
-        enableRangeProcessing: true);
+    var path = await store.RequireInstallerDownloadAsync(customerId, cancellationToken);
+    return Results.File(path, "application/vnd.microsoft.portable-executable", "Instalador-AtlasCad.exe", enableRangeProcessing: true);
+});
+
+app.MapGet("/api/v1/portal/uninstaller", async (
+    HttpContext context, CommerceStore store, CancellationToken cancellationToken) =>
+{
+    var customerId = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
+    var path = await store.RequireUninstallerDownloadAsync(customerId, cancellationToken);
+    return Results.File(path, "application/vnd.microsoft.portable-executable", "Desinstalar-AtlasCad.exe", enableRangeProcessing: true);
 });
 
 app.MapPost("/api/v1/webhooks/asaas", async (HttpContext context, CommerceStore store, CommerceOptions options, CancellationToken cancellationToken) =>

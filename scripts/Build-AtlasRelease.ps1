@@ -8,14 +8,22 @@ param(
     [string]$OutputRoot = '.tmp\release',
     [string]$SigningPublicKeyPath = 'infra\secrets\server-signing-public.json',
     [Parameter(Mandatory=$true)] [string]$PublicLicenseApiUrl,
-    [string]$CertificateThumbprint,
-    [string]$TimestampUrl = 'http://timestamp.digicert.com',
-    [switch]$RequireCodeSigning
+    [Parameter(Mandatory=$true)] [string]$CertificateThumbprint,
+    [string]$TimestampUrl = 'https://timestamp.digicert.com'
 )
 
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Version must use numeric major.minor.patch format.' }
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
+$CertificateThumbprint = $CertificateThumbprint.Replace(' ', '').ToUpperInvariant()
+$codeSigningCertificate = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object {
+    $_.Thumbprint.Equals($CertificateThumbprint, [StringComparison]::OrdinalIgnoreCase)
+} | Select-Object -First 1
+if (-not $codeSigningCertificate) { throw "Code-signing certificate '$CertificateThumbprint' was not found in Cert:\CurrentUser\My." }
+if (-not $codeSigningCertificate.HasPrivateKey) { throw 'The code-signing certificate does not have an accessible private key.' }
+if ($codeSigningCertificate.NotBefore -gt (Get-Date) -or $codeSigningCertificate.NotAfter -le (Get-Date)) {
+    throw 'The code-signing certificate is not currently valid.'
+}
 function FullPath([string]$value) {
     if ([IO.Path]::IsPathRooted($value)) { return [IO.Path]::GetFullPath($value) }
     return [IO.Path]::GetFullPath((Join-Path $repositoryRoot $value))
@@ -60,17 +68,11 @@ $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
 $env:DOTNET_NOLOGO = '1'
 $modernProject = Join-Path $repositoryRoot 'cad\autocad-2025-2026\Atlas.AutoCAD.Adapter.csproj'
 $legacyProject = Join-Path $repositoryRoot 'cad\autocad-2022-2024\Atlas.AutoCAD.Adapter.csproj'
-$machineIdProject = Join-Path $repositoryRoot 'apps\machine-id\Atlas.MachineId.csproj'
-$uninstallerProject = Join-Path $repositoryRoot 'apps\uninstaller\Atlas.Uninstaller.csproj'
+$installerProject = Join-Path $repositoryRoot 'apps\installer\Atlas.Installer.csproj'
 $commonProperties = @("-p:Version=$Version", "-p:AtlasSigningPublicKeyPath=$signingPublicKey", "-p:AtlasRuntimeConfigurationPath=$runtimeConfiguration")
 Invoke-DotNet -Arguments (@('build', $legacyProject, '-c', 'Release') + $commonProperties) -FailureMessage 'AutoCAD 2022-2024 adapter build failed.'
 Invoke-DotNet -Arguments (@('build', $modernProject, '-c', 'Release', '-p:AtlasAutoCadRuntime=net8') + $commonProperties) -FailureMessage 'AutoCAD 2025-2026 Update 1.1 adapter build failed.'
 Invoke-DotNet -Arguments (@('build', $modernProject, '-c', 'Release', '-p:AtlasAutoCadRuntime=net10') + $commonProperties) -FailureMessage 'AutoCAD 2026 Update 1.2+ adapter build failed.'
-Invoke-DotNet -Arguments @('publish', $machineIdProject, '-c', 'Release', "-p:Version=$Version") -FailureMessage 'Machine identifier release build failed.'
-Invoke-DotNet -Arguments @('build', $uninstallerProject, '-c', 'Release', "-p:Version=$Version") -FailureMessage 'Uninstaller release build failed.'
-$machineIdExecutable = Join-Path $repositoryRoot 'apps\machine-id\bin\Release\net10.0-windows\win-x64\publish\AtlasCad-Identificador.exe'
-$uninstallerExecutable = Join-Path $repositoryRoot 'apps\uninstaller\bin\Release\net48\Desinstalar-AtlasCad.exe'
-
 $compileRoot = Join-Path $repositoryRoot '.tmp\m6-compile'
 New-Item -ItemType Directory -Force -Path $compileRoot | Out-Null
 $compiledFas = Join-Path $compileRoot 'STEELFLOW.fas'
@@ -96,18 +98,15 @@ $variants = @(
 
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 $template = Get-Content -LiteralPath (Join-Path $repositoryRoot 'installer\windows\templates\PackageContents.xml') -Raw
-$signTool = $null
-if ($CertificateThumbprint) {
-    $signTool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
-    if (-not $signTool) { throw 'signtool.exe was not found in PATH.' }
-    & $signTool sign /sha1 $CertificateThumbprint /fd SHA256 /tr $TimestampUrl /td SHA256 $machineIdExecutable $uninstallerExecutable
-    if ($LASTEXITCODE -ne 0) { throw 'Executable Authenticode signing failed.' }
-} elseif ($RequireCodeSigning) { throw 'RequireCodeSigning was set but no CertificateThumbprint was supplied.' }
+$signTool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+if (-not $signTool) { throw 'signtool.exe was not found in PATH.' }
+$installerPayloadRoot = Join-Path $repositoryRoot '.tmp\installer-payload'
+if (Test-Path -LiteralPath $installerPayloadRoot) { Remove-Item -LiteralPath $installerPayloadRoot -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $installerPayloadRoot | Out-Null
 
 foreach ($variant in $variants) {
-    $releaseRoot = Join-Path $output ("AtlasCad-$Version-" + $variant.Slug + '-win64')
-    if (Test-Path -LiteralPath $releaseRoot) { Remove-Item -LiteralPath $releaseRoot -Recurse -Force }
-    $bundle = Join-Path $releaseRoot 'AtlasCad.bundle'
+    $variantPayload = Join-Path $installerPayloadRoot $variant.Slug
+    $bundle = Join-Path $variantPayload 'AtlasCad.bundle'
     $content = Join-Path $bundle ('Contents\Windows\' + $variant.ContentFolder)
     New-Item -ItemType Directory -Force -Path $content | Out-Null
     $adapterSource = Join-Path $variant.AdapterOutput $variant.AdapterFile
@@ -141,23 +140,33 @@ foreach ($variant in $variants) {
         '{0}  {1}' -f (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash, $relative
     }
     [IO.File]::WriteAllLines((Join-Path $bundle 'SHA256SUMS.txt'), $hashLines, (New-Object Text.UTF8Encoding($false)))
-    & (Join-Path $repositoryRoot 'scripts\Test-AtlasBundle.ps1') -BundlePath $bundle -RequireCodeSigning:$RequireCodeSigning
+    & (Join-Path $repositoryRoot 'scripts\Test-AtlasBundle.ps1') -BundlePath $bundle -RequireCodeSigning
     if ($LASTEXITCODE -ne 0) { throw "Bundle validation failed for $($variant.Slug)." }
-
-    Copy-Item -LiteralPath (Join-Path $repositoryRoot 'scripts\Install-AtlasCad.ps1') -Destination $releaseRoot
-    Copy-Item -LiteralPath (Join-Path $repositoryRoot 'scripts\Uninstall-AtlasCad.ps1') -Destination $releaseRoot
-    Copy-Item -LiteralPath (Join-Path $repositoryRoot 'scripts\Test-AtlasBundle.ps1') -Destination $releaseRoot
-    Copy-Item -LiteralPath (Join-Path $repositoryRoot 'installer\windows\Instalar-AtlasCad.cmd') -Destination $releaseRoot
-    Copy-Item -LiteralPath $machineIdExecutable -Destination $releaseRoot
-    Copy-Item -LiteralPath $uninstallerExecutable -Destination $releaseRoot
-
-    $archive = Join-Path $output ("AtlasCad-$Version-" + $variant.Slug + '-win64.zip')
-    if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
-    Compress-Archive -Path (Get-ChildItem -LiteralPath $releaseRoot).FullName -DestinationPath $archive -CompressionLevel Optimal
-    Copy-Item -LiteralPath $archive -Destination (Join-Path $output ("AtlasCad-" + $variant.Slug + '-win64.zip')) -Force
-    Write-Host "Release archive: $archive"
 }
 
-Copy-Item -LiteralPath $machineIdExecutable -Destination (Join-Path $output 'AtlasCad-Identificador.exe') -Force
-Copy-Item -LiteralPath (Join-Path $output "AtlasCad-$Version-autocad-2026-1-2-plus-win64.zip") -Destination (Join-Path $output 'AtlasCad-latest-win64.zip') -Force
-Write-Host ($(if ($CertificateThumbprint) { 'Authenticode: signed' } else { 'Authenticode: unsigned development build' }))
+$installerPayloadArchive = Join-Path $repositoryRoot '.tmp\atlas-installer-payload.zip'
+if (Test-Path -LiteralPath $installerPayloadArchive) { Remove-Item -LiteralPath $installerPayloadArchive -Force }
+Compress-Archive -Path (Get-ChildItem -LiteralPath $installerPayloadRoot).FullName -DestinationPath $installerPayloadArchive -CompressionLevel Optimal
+
+$publicDescriptor = Get-Content -LiteralPath $signingPublicKey -Raw | ConvertFrom-Json
+$installerSettings = @{
+    licenseApiBaseUrl = $PublicLicenseApiUrl.TrimEnd('/')
+    signingKeyId = [string]$publicDescriptor.keyId
+    signingKeyX = [string]$publicDescriptor.x
+    signingKeyY = [string]$publicDescriptor.y
+} | ConvertTo-Json -Compress
+$installerSettingsPath = Join-Path $repositoryRoot '.tmp\installer-settings.json'
+[IO.File]::WriteAllText($installerSettingsPath, $installerSettings, (New-Object Text.UTF8Encoding($false)))
+Invoke-DotNet -Arguments @(
+    'publish', $installerProject, '-c', 'Release', "-p:Version=$Version",
+    "-p:AtlasInstallerPayloadPath=$installerPayloadArchive",
+    "-p:AtlasInstallerSettingsPath=$installerSettingsPath"
+) -FailureMessage 'Unified installer release build failed.'
+$installerExecutable = Join-Path $repositoryRoot 'apps\installer\bin\Release\net10.0-windows\win-x64\publish\Instalador-AtlasCad.exe'
+& $signTool sign /sha1 $CertificateThumbprint /fd SHA256 /tr $TimestampUrl /td SHA256 $installerExecutable
+if ($LASTEXITCODE -ne 0) { throw 'Unified installer Authenticode signing failed.' }
+& $signTool verify /pa $installerExecutable
+if ($LASTEXITCODE -ne 0) { throw 'Unified installer Authenticode verification failed.' }
+Copy-Item -LiteralPath $installerExecutable -Destination (Join-Path $output 'Instalador-AtlasCad.exe') -Force
+Copy-Item -LiteralPath $installerExecutable -Destination (Join-Path $output 'Desinstalar-AtlasCad.exe') -Force
+Write-Host 'Authenticode: signed and verified'

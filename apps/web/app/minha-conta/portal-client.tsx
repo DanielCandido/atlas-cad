@@ -73,7 +73,6 @@ export function PortalClient() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [activation, setActivation] = useState('');
 
   const load = useCallback(async () => {
     const response = await fetch('/api/portal');
@@ -94,29 +93,13 @@ export function PortalClient() {
   useEffect(() => {
     if (
       !portal ||
-      !['provisioning', 'pending_checkout', 'pending_payment'].includes(
-        portal.subscriptionStatus,
-      )
+      !['provisioning', 'pending_checkout', 'pending_payment'].includes(portal.subscriptionStatus)
     )
       return;
 
     const timer = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(timer);
   }, [load, portal]);
-
-  async function machine(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError('');
-    const body = JSON.stringify(Object.fromEntries(new FormData(event.currentTarget)));
-    const response = await fetch('/api/portal/machines', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body,
-    });
-    const result = await response.json();
-    if (!response.ok) return setError(result.message);
-    setActivation(result.activationCode);
-  }
 
   async function plan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -167,7 +150,6 @@ export function PortalClient() {
       const result = await response.json();
       return setError(result.message);
     }
-    setActivation('');
     await load();
   }
 
@@ -313,32 +295,23 @@ export function PortalClient() {
           <article className="account-card">
             <h2>Download</h2>
             <p>
-              Pacote para Windows com instalador, biblioteca protegida e gerador do identificador da
-              máquina.
+              Um único instalador detecta o AutoCAD, vincula sua conta e ativa o plugin
+              automaticamente.
             </p>
             {portal.canDownload ? (
               <div className="form-stack">
-                <a className="button button-primary" href="/api/download/autocad-2022-2024">
-                  Baixar para AutoCAD 2022–2024
+                <a className="button button-primary" href="/api/installer">
+                  Baixar instalador único (AutoCAD 2022–2026)
                 </a>
-                <a className="button button-primary" href="/api/download/autocad-2025-2026-1-1">
-                  Baixar para AutoCAD 2025 / 2026 até Update 1.1
-                </a>
-                <a className="button button-primary" href="/api/download/autocad-2026-1-2-plus">
-                  Baixar para AutoCAD 2026 Update 1.2+
-                </a>
-                <a className="button button-outline" href="/api/machine-identifier">
-                  Baixar Identificador
-                </a>
-                <small>
-                  No AutoCAD 2026, consulte SOBRE/ABOUT para escolher o pacote conforme a atualização instalada.
-                </small>
               </div>
             ) : (
               <button className="button button-disabled" disabled>
                 Aguardando pagamento
               </button>
             )}
+            <a className="button button-outline" href="/api/uninstaller">
+              Baixar desinstalador
+            </a>
           </article>
 
           <article className="account-card account-wide">
@@ -370,40 +343,6 @@ export function PortalClient() {
                 <button className="danger-link" type="button" onClick={deactivate}>
                   Desativar para trocar de máquina
                 </button>
-              </div>
-            )}
-            <ol className="steps">
-              <li>Baixe e extraia o pacote.</li>
-              <li>
-                Execute <code>AtlasCad-Identificador.exe</code>.
-              </li>
-              <li>Cole abaixo o conteúdo do arquivo criado na Área de Trabalho.</li>
-              <li>
-                Copie o código retornado e use <code>ATLAS_LICENSE_ACTIVATE</code> no AutoCAD.
-              </li>
-            </ol>
-            <form className="form-stack" onSubmit={machine}>
-              <label>
-                Identificador da máquina
-                <textarea
-                  name="machineIdentifier"
-                  rows={4}
-                  required
-                  disabled={!portal.canActivate || Boolean(portal.machineFingerprint)}
-                />
-              </label>
-              <button
-                className="button button-primary"
-                disabled={!portal.canActivate || Boolean(portal.machineFingerprint)}
-              >
-                Gerar código de ativação
-              </button>
-            </form>
-            {activation && (
-              <div className="activation-code">
-                <small>SEU CÓDIGO DE ATIVAÇÃO</small>
-                <strong>{activation}</strong>
-                <p>Uso único. Expira em 7 dias.</p>
               </div>
             )}
           </article>

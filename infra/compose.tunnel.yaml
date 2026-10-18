@@ -30,11 +30,8 @@ services:
       ATLAS_LICENSE_SIGNING_KEY_ID: ${ATLAS_LICENSE_SIGNING_KEY_ID}
       ATLAS_LICENSE_ADMIN_KEY: ${ATLAS_LICENSE_ADMIN_KEY}
       ATLAS_CATALOG_KEYS_PATH: /run/atlas-secrets/catalog-keys.json
-      ATLAS_DOWNLOAD_PATH: /downloads/AtlasCad-latest-win64.zip
-      ATLAS_DOWNLOAD_AUTOCAD_2022_2024_PATH: /downloads/AtlasCad-autocad-2022-2024-win64.zip
-      ATLAS_DOWNLOAD_AUTOCAD_2025_2026_1_1_PATH: /downloads/AtlasCad-autocad-2025-2026-1-1-win64.zip
-      ATLAS_DOWNLOAD_AUTOCAD_2026_1_2_PLUS_PATH: /downloads/AtlasCad-autocad-2026-1-2-plus-win64.zip
-      ATLAS_MACHINE_IDENTIFIER_PATH: /downloads/AtlasCad-Identificador.exe
+      ATLAS_INSTALLER_PATH: /downloads/Instalador-AtlasCad.exe
+      ATLAS_UNINSTALLER_PATH: /downloads/Desinstalar-AtlasCad.exe
       ASAAS_BASE_URL: ${ASAAS_BASE_URL}
       ASAAS_CHECKOUT_BASE_URL: ${ASAAS_CHECKOUT_BASE_URL}
       ASAAS_API_KEY: ${ASAAS_API_KEY}

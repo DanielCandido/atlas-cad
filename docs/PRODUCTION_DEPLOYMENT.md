@@ -17,10 +17,8 @@ Copie `infra/compose.production.yaml`, `infra/Caddyfile` e o repositório para o
 - `secrets/server-signing-key.pk8`;
 - `secrets/server-signing-public.json` (necessário apenas para o build do plugin, não para a API);
 - `secrets/catalog-keys.json`;
-- `artifacts/AtlasCad-autocad-2022-2024-win64.zip`;
-- `artifacts/AtlasCad-autocad-2025-2026-1-1-win64.zip`;
-- `artifacts/AtlasCad-autocad-2026-1-2-plus-win64.zip`;
-- `artifacts/AtlasCad-Identificador.exe`.
+- `artifacts/Instalador-AtlasCad.exe`;
+- `artifacts/Desinstalar-AtlasCad.exe`.
 
 Proteja `secrets/` para leitura exclusiva do usuário que executa Docker e mantenha uma cópia criptografada fora do servidor. Perder a chave privada impede renovar licenças; vazá-la exige rotação e novo build do plugin.
 
@@ -75,16 +73,13 @@ powershell -ExecutionPolicy Bypass -File scripts/Build-AtlasRelease.ps1 `
   -OutputRoot infra/artifacts `
   -PublicLicenseApiUrl https://api.seudominio.com.br `
   -SigningPublicKeyPath secrets/server-signing-public.json `
-  -CertificateThumbprint SEU_CERTIFICADO_AUTHENTICODE `
-  -RequireCodeSigning
+  -CertificateThumbprint SEU_CERTIFICADO_AUTHENTICODE
 ```
 
-Renomeie/copiei o ZIP final para `infra/artifacts/AtlasCad-latest-win64.zip`. O ZIP contém o instalador e `AtlasCad-Identificador.exe`; não contém fontes privados ou chaves do servidor.
-
-O build publica três opções: AutoCAD 2022–2024 (.NET Framework 4.8), AutoCAD
-2025/2026 até Update 1.1 (.NET 8) e AutoCAD 2026 Update 1.2+ (.NET 10). Cada
-ZIP inclui `AtlasCad-Identificador.exe` e `Desinstalar-AtlasCad.exe`. No AutoCAD
-2026, confira a atualização em `ABOUT` antes de escolher o download.
+O build publica somente o instalador e o desinstalador assinados. Os payloads
+compatíveis com AutoCAD 2022-2026 ficam incorporados no instalador e não são
+oferecidos separadamente. O release falha se o certificado Authenticode não
+estiver disponível com chave privada válida.
 
 ## 6. Subir e verificar
 
@@ -99,7 +94,7 @@ O primeiro start cria as tabelas no PostgreSQL. Configure backup diário do volu
 
 ## 7. Teste obrigatório no Sandbox
 
-Crie uma compra real de teste pelo site. Confirme, nesta ordem: cliente e assinatura aparecem no Asaas; a conta entra no portal; antes do pagamento não há download; o webhook libera o download; o identificador é aceito; o código ativa apenas a máquina que o gerou; o catálogo instala; a renovação funciona; a troca de plano reflete no Asaas; atraso/estorno suspende novas renovações; cancelamento revoga a ativação.
+Crie uma compra real de teste pelo site. Confirme, nesta ordem: cliente e assinatura aparecem no Asaas; a conta entra no portal; antes do pagamento não há download; o webhook libera o instalador; o vínculo no navegador ativa apenas a máquina solicitante; o catálogo instala; a renovação funciona; a troca de plano reflete no Asaas; atraso/estorno suspende novas renovações; cancelamento revoga a ativação.
 
 Depois do teste, troque `ASAAS_BASE_URL` para `https://api.asaas.com/v3` e
 `ASAAS_CHECKOUT_BASE_URL` para `https://asaas.com/checkoutSession/show`, use a
@@ -109,4 +104,4 @@ webhooks separados.
 
 ## 8. Rotina operacional
 
-Monitore HTTP 5xx, fila de webhook interrompida no Asaas, espaço em disco, expiração de backup e validade TLS. Antes de publicar uma versão nova, gere e assine o ZIP, execute `scripts/Test-AtlasBundle.ps1`, substitua o artefato e mantenha a versão anterior para rollback. Nunca substitua a chave de assinatura sem publicar um cliente que confie na nova chave e planejar a rotação.
+Monitore HTTP 5xx, fila de webhook interrompida no Asaas, espaço em disco, expiração de backup e validade TLS. Antes de publicar uma versão nova, gere e assine os executáveis, confirme a assinatura com `signtool verify /pa` e mantenha a versão anterior para rollback. Nunca substitua a chave de assinatura sem publicar um cliente que confie na nova chave e planejar a rotação.

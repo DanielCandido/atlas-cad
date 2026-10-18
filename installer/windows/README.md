@@ -13,6 +13,13 @@ M6 produces an Autodesk Application Bundle for the locally validated AutoCAD
 It never includes private STEELFLOW LSP, MLN/MLNX, plaintext catalog JSON,
 catalog/signing keys or Autodesk assemblies.
 
+The customer-facing release now also produces `Instalador-AtlasCad.exe`. This
+signed per-user wizard embeds all supported payloads, detects installed AutoCAD
+versions, opens browser-based account pairing and prepares the device license
+and protected catalog without copying a machine identifier. The ZIP/CMD and
+`AtlasCad-Identificador.exe` flow remains available during the compatibility
+transition. See `docs/INSTALLER_FLOW.md`.
+
 Build a development release:
 
 ```powershell

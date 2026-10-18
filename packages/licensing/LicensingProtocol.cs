@@ -151,6 +151,42 @@ public sealed class CatalogKeyResponse
     public long ExpiresAtUnix { get; set; }
 }
 
+[DataContract]
+public sealed class InstallerPairingCreateRequest
+{
+    [DataMember(Name = "protocolVersion", IsRequired = true, Order = 1)] public int ProtocolVersion { get; set; }
+    [DataMember(Name = "devicePublicKeyX", IsRequired = true, Order = 2)] public string DevicePublicKeyX { get; set; } = string.Empty;
+    [DataMember(Name = "devicePublicKeyY", IsRequired = true, Order = 3)] public string DevicePublicKeyY { get; set; } = string.Empty;
+    [DataMember(Name = "nonce", IsRequired = true, Order = 4)] public string Nonce { get; set; } = string.Empty;
+    [DataMember(Name = "detectedVersions", IsRequired = true, Order = 5)] public List<string> DetectedVersions { get; set; } = new List<string>();
+    [DataMember(Name = "proof", IsRequired = true, Order = 6)] public string Proof { get; set; } = string.Empty;
+}
+
+[DataContract]
+public sealed class InstallerPairingProofRequest
+{
+    [DataMember(Name = "protocolVersion", IsRequired = true, Order = 1)] public int ProtocolVersion { get; set; }
+    [DataMember(Name = "nonce", IsRequired = true, Order = 2)] public string Nonce { get; set; } = string.Empty;
+    [DataMember(Name = "proof", IsRequired = true, Order = 3)] public string Proof { get; set; } = string.Empty;
+}
+
+[DataContract]
+public sealed class InstallerPairingCreateResponse
+{
+    [DataMember(Name = "pairingId", IsRequired = true, Order = 1)] public string PairingId { get; set; } = string.Empty;
+    [DataMember(Name = "userCode", IsRequired = true, Order = 2)] public string UserCode { get; set; } = string.Empty;
+    [DataMember(Name = "verificationUri", IsRequired = true, Order = 3)] public string VerificationUri { get; set; } = string.Empty;
+    [DataMember(Name = "expiresAtUnix", IsRequired = true, Order = 4)] public long ExpiresAtUnix { get; set; }
+    [DataMember(Name = "pollIntervalSeconds", IsRequired = true, Order = 5)] public int PollIntervalSeconds { get; set; }
+}
+
+[DataContract]
+public sealed class InstallerPairingStatusResponse
+{
+    [DataMember(Name = "status", IsRequired = true, Order = 1)] public string Status { get; set; } = string.Empty;
+    [DataMember(Name = "expiresAtUnix", IsRequired = true, Order = 2)] public long ExpiresAtUnix { get; set; }
+}
+
 public sealed class EntitlementValidationResult
 {
     public bool Success { get; set; }

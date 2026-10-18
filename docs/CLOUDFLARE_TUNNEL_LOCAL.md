@@ -106,14 +106,15 @@ dotnet run --project apps/license-manager -- generate-catalog-key `
 O valor `atlas-test-2026-01` precisa ser igual ao
 `ATLAS_LICENSE_SIGNING_KEY_ID` de `infra/.env.tunnel`.
 
-O download só será liberado se existir:
+Os downloads só serão liberados se existirem:
 
 ```text
-infra/artifacts/AtlasCad-latest-win64.zip
+infra/artifacts/Instalador-AtlasCad.exe
+infra/artifacts/Desinstalar-AtlasCad.exe
 ```
 
-Durante a configuração inicial, você pode subir o sistema sem o ZIP. A API
-retornará `download_unavailable` quando uma conta tentar baixá-lo.
+Durante a configuração inicial, você pode subir o sistema sem os executáveis.
+A API retornará `download_unavailable` quando uma conta tentar baixá-los.
 
 ## 4. Criar o Tunnel na Cloudflare
 
@@ -278,19 +279,16 @@ powershell -ExecutionPolicy Bypass -File scripts/Build-AtlasRelease.ps1 `
   -Version 1.0.0 `
   -OutputRoot infra/artifacts `
   -PublicLicenseApiUrl https://api.atlasengenharia.site `
-  -SigningPublicKeyPath infra/secrets/server-signing-public.json
+  -SigningPublicKeyPath infra/secrets/server-signing-public.json `
+  -CertificateThumbprint SEU_CERTIFICADO_AUTHENTICODE
 ```
 
-Para um teste sem certificado Authenticode, omita `-RequireCodeSigning`. Antes
-de vender, assine o adaptador e o gerador de identificador.
-
-Copie o ZIP gerado para:
+O release exige um certificado Authenticode confiável com chave privada no
+repositório `Cert:\CurrentUser\My`. São publicados somente:
 
 ```text
-infra/artifacts/AtlasCad-autocad-2022-2024-win64.zip
-infra/artifacts/AtlasCad-autocad-2025-2026-1-1-win64.zip
-infra/artifacts/AtlasCad-autocad-2026-1-2-plus-win64.zip
-infra/artifacts/AtlasCad-Identificador.exe
+infra/artifacts/Instalador-AtlasCad.exe
+infra/artifacts/Desinstalar-AtlasCad.exe
 ```
 
 ## 11. Teste ponta a ponta

@@ -34,6 +34,7 @@ public sealed class RetrySubscriptionRequest
     public string Province { get; set; } = string.Empty;
 }
 public sealed class RegisterMachineRequest { public string MachineIdentifier { get; set; } = string.Empty; }
+public sealed class PairingDecisionRequest { public bool ReplaceExisting { get; set; } }
 
 public sealed class CreateLicenseRequest { public string CustomerReference { get; set; } = string.Empty; }
 public sealed class CreateLicenseResponse
@@ -62,6 +63,14 @@ public sealed class LicenseServerException : Exception
 public sealed record AuthResponse(string SessionToken, DateTimeOffset ExpiresAt, PortalSnapshot Portal);
 public sealed record CheckoutResponse(string SessionToken, DateTimeOffset ExpiresAt, string? PaymentUrl, PortalSnapshot Portal);
 public sealed record MachineActivationResponse(string ActivationCode, DateTimeOffset ExpiresAt, string MachineFingerprint);
+public sealed record PortalPairingSnapshot(
+    string UserCode,
+    string Status,
+    string MachineFingerprint,
+    IReadOnlyList<string> DetectedVersions,
+    DateTimeOffset ExpiresAt,
+    bool HasActiveMachine,
+    string? ActiveMachineFingerprint);
 public sealed record SubscriptionSummary(
     Guid Id,
     string PlanCode,

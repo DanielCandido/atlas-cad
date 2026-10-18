@@ -534,48 +534,31 @@ public sealed class CommerceStore(
         }
     }
 
-    public async Task<string> RequireDownloadAsync(Guid customerId, CancellationToken cancellationToken)
-    {
-        var portal = await GetPortalAsync(customerId, cancellationToken);
-        if (!portal.CanDownload) throw new LicenseServerException("download_not_entitled", "Download liberado somente após confirmação do pagamento.", 403);
-        if (!File.Exists(options.DownloadPath)) throw new LicenseServerException("download_unavailable", "O pacote ainda não foi publicado no servidor.", 503);
-        return options.DownloadPath;
-    }
-
-    public async Task<string> RequireDownloadAsync(
-        Guid customerId, string edition, CancellationToken cancellationToken)
+    public async Task<string> RequireInstallerDownloadAsync(Guid customerId, CancellationToken cancellationToken)
     {
         var portal = await GetPortalAsync(customerId, cancellationToken);
         if (!portal.CanDownload)
             throw new LicenseServerException(
                 "download_not_entitled",
-                "Download liberado somente apos confirmacao do pagamento.",
+                "Download liberado somente após confirmação do pagamento.",
                 403);
-        if (!options.DownloadPaths.TryGetValue(edition, out var path))
-            throw new LicenseServerException("download_edition_invalid", "Versao do AutoCAD invalida.", 404);
-        if (!File.Exists(path))
+        if (!File.Exists(options.InstallerPath))
             throw new LicenseServerException(
                 "download_unavailable",
-                "O pacote selecionado ainda nao foi publicado no servidor.",
+                "O instalador ainda não foi publicado no servidor.",
                 503);
-        return path;
+        return options.InstallerPath;
     }
 
-    public async Task<string> RequireMachineIdentifierDownloadAsync(
-        Guid customerId, CancellationToken cancellationToken)
+    public async Task<string> RequireUninstallerDownloadAsync(Guid customerId, CancellationToken cancellationToken)
     {
-        var portal = await GetPortalAsync(customerId, cancellationToken);
-        if (!portal.CanDownload)
-            throw new LicenseServerException(
-                "download_not_entitled",
-                "Download liberado somente apos confirmacao do pagamento.",
-                403);
-        if (!File.Exists(options.MachineIdentifierPath))
+        await GetPortalAsync(customerId, cancellationToken);
+        if (!File.Exists(options.UninstallerPath))
             throw new LicenseServerException(
                 "download_unavailable",
-                "O identificador de maquina ainda nao foi publicado no servidor.",
+                "O desinstalador ainda nao foi publicado no servidor.",
                 503);
-        return options.MachineIdentifierPath;
+        return options.UninstallerPath;
     }
 
     private static MachineIdentifierPayload ParseAndVerifyMachine(string identifier)

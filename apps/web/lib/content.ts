@@ -11,7 +11,7 @@ export const product = {
   ],
   requirements: [
     'Windows 10 ou 11 de 64 bits',
-    'AutoCAD 2022 a 2026 em uma das versões de download disponíveis',
+    'AutoCAD 2022 a 2026 detectado automaticamente pelo instalador',
     'Internet para ativação e renovação periódica da licença',
   ],
 };
@@ -28,11 +28,11 @@ export const docs = [
       ],
       [
         'Fluxo completo',
-        'Você assina pelo site, aguarda a confirmação do Asaas, baixa o pacote, gera o identificador da máquina e ativa o plugin.',
+        'Você assina pelo site, aguarda a confirmação do Asaas e executa o instalador, que detecta o AutoCAD e conduz a ativação segura.',
       ],
       [
         'Compatibilidade',
-        'Há pacotes separados para AutoCAD 2022–2024, AutoCAD 2025/2026 até Update 1.1 e AutoCAD 2026 Update 1.2 ou superior, todos para Windows de 64 bits.',
+        'Um único instalador atende ao AutoCAD 2022–2026 no Windows de 64 bits e seleciona automaticamente os componentes compatíveis.',
       ],
     ],
   },
@@ -60,23 +60,15 @@ export const docs = [
     slug: 'instalacao',
     title: 'Instalação e ativação',
     group: 'Primeiros passos',
-    summary: 'Passo a passo desde o ZIP até o primeiro uso no AutoCAD.',
+    summary: 'Passo a passo desde o instalador até o primeiro uso no AutoCAD.',
     body: [
       [
         'Baixar e instalar',
-        'Escolha na Área do Cliente o ZIP correspondente à sua versão do AutoCAD. No AutoCAD 2026, consulte ABOUT: use o pacote .NET 8 até Update 1.1 e o pacote .NET 10 no Update 1.2 ou superior. Extraia todos os arquivos, feche o AutoCAD e execute Instalar-AtlasCad.cmd. Não execute o instalador de dentro do ZIP.',
-      ],
-      [
-        'Identificar a máquina',
-        'Execute AtlasCad-Identificador.exe. O programa cria AtlasCad-Identificador.txt na Área de Trabalho sem coletar serial de hardware ou dados pessoais. Cole o conteúdo na Área do Cliente.',
-      ],
-      [
-        'Ativar no AutoCAD',
-        'Copie o código de uso único retornado pelo site. Abra o AutoCAD, execute ATLAS_LICENSE_ACTIVATE e cole o código. Em seguida execute ATLAS_INSTALL_CATALOG e ATLAS_DIAGNOSTICS.',
+        'Feche o AutoCAD, baixe Instalador-AtlasCad.exe na Área do Cliente e execute-o. O instalador detecta as versões compatíveis, abre o vínculo seguro com sua conta e instala somente os componentes necessários.',
       ],
       [
         'Desinstalar',
-        'Feche o AutoCAD e execute Desinstalar-AtlasCad.exe na pasta extraída. O desinstalador remove o plugin e preserva os dados locais da licença para uma futura reinstalação.',
+        'Feche o AutoCAD e baixe Desinstalar-AtlasCad.exe na Área do Cliente. O desinstalador remove o plugin e preserva os dados locais da licença para uma futura reinstalação.',
       ],
     ],
   },
@@ -96,7 +88,7 @@ export const docs = [
       ],
       [
         'Troca de máquina',
-        'Uma assinatura admite uma máquina ativa. Na Área do Cliente, desative a máquina atual, gere o identificador no novo Windows e solicite outro código. O código antigo não pode ser reutilizado.',
+        'Uma assinatura admite uma máquina ativa. Na Área do Cliente, desative a máquina atual e execute o instalador no novo Windows para iniciar outro vínculo seguro.',
       ],
     ],
   },
@@ -128,7 +120,7 @@ export const docs = [
     body: [
       [
         'Comando não aparece',
-        'Confirme que instalou o pacote correto para sua versão, feche o AutoCAD e reinstale. Verifique se AtlasCad.bundle existe em %APPDATA%\\Autodesk\\ApplicationPlugins. O carregamento é automático; NETLOAD deve ser usado somente para diagnóstico.',
+        'Feche o AutoCAD e execute novamente o instalador unificado. Confirme que um bundle AtlasCad existe em %APPDATA%\\Autodesk\\ApplicationPlugins. O carregamento é automático; NETLOAD deve ser usado somente para diagnóstico.',
       ],
       [
         'Pagamento confirmado sem download',
