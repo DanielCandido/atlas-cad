@@ -5,6 +5,7 @@ obj/
 .tmp/
 .packages/
 .pnpm-store/
+/apps/web/pnpm-lock.yaml
 .env
 .env.local
 .env.tunnel*
@@ -23,6 +24,7 @@ obj/
 *.fas
 *.vlx
 *.bak
+!installer/windows/atlas-loader.lsp
 !cad/legacy-lisp/README.md
 !cad/legacy-lisp/atlas-bridge.lsp
 !assets/source-mln/README.md
@@ -37,3 +39,4 @@ licensing-state.json
 /tests/autocad/baseline/private/
 /infra/secrets/
 /infra/artifacts/
+/infra/backups/
