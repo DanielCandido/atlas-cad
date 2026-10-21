@@ -1,101 +1,153 @@
 import Link from 'next/link';
 import { ArrowLink, CadVisual, Eyebrow } from '@/components/ui';
+
 export default function Home() {
   return (
     <>
       <section className="hero">
         <div className="container hero-grid">
           <div>
-            <Eyebrow>ENGENHARIA + AUTOMAÇÃO</Eyebrow>
+            <Eyebrow>LISP · .NET · ARX · AutoCAD 2021–2026</Eyebrow>
             <h1>
-              Menos comandos repetitivos.
-              <br />
-              <span>Mais engenharia.</span>
+              Automatize horas de desenho repetitivo <span>em segundos.</span>
             </h1>
             <p className="lead">
-              O ATLAS CAD transforma tarefas manuais do AutoCAD em fluxos inteligentes, consistentes
-              e feitos para quem projeta.
+              Bibliotecas prontas de rotinas AutoLISP, scripts DCL e plugins .NET para arquitetos e
+              engenheiros. Zero retrabalho, precisão dimensional absoluta.
             </p>
             <div className="hero-actions">
-              <ArrowLink href="/bibliotecas/steelflow">Explorar biblioteca SteelFlow</ArrowLink>
+              <ArrowLink href="/bibliotecas">Explorar bibliotecas</ArrowLink>
               <ArrowLink href="/documentacao" secondary>
                 Ver documentação
               </ArrowLink>
             </div>
             <div className="hero-note">
-              <span className="pulse" />
-              SteelFlow disponível com planos mensal e anual
+              <span className="pulse" /> Bibliotecas verificadas e atualizadas continuamente
             </div>
           </div>
           <CadVisual />
         </div>
       </section>
+
+      <div className="container metrics-strip" aria-label="Indicadores da plataforma">
+        <div className="metric-card">
+          <span className="metric-icon">↗</span>
+          <div>
+            <strong>+45.000h</strong>
+            <small>economizadas em pranchas técnicas</small>
+          </div>
+        </div>
+        <div className="metric-card">
+          <span className="metric-icon">✓</span>
+          <div>
+            <strong>99,8%</strong>
+            <small>de precisão conforme ABNT</small>
+          </div>
+        </div>
+        <div className="metric-card">
+          <span className="metric-icon">▣</span>
+          <div>
+            <strong>2021–2026</strong>
+            <small>suporte nativo a versões AutoCAD</small>
+          </div>
+        </div>
+      </div>
+
       <section className="section section-dark">
         <div className="container">
           <div className="section-heading">
-            <Eyebrow>O QUE MUDA NO SEU FLUXO</Eyebrow>
-            <h2>
-              Seu tempo vale mais que
-              <br />
-              tarefas repetitivas.
-            </h2>
+            <Eyebrow>Catálogo verificado</Eyebrow>
+            <h2>Bibliotecas para produzir melhor.</h2>
             <p>
-              Ferramentas projetadas para reduzir etapas manuais e trazer consistência aos desenhos.
+              Ferramentas especializadas para eliminar etapas manuais sem alterar seu fluxo de
+              engenharia.
+            </p>
+          </div>
+          <div className="library-grid">
+            <Link href="/bibliotecas/steelflow" className="library-card">
+              <div className="library-art">
+                <span className="library-monogram">
+                  S<span>TEELFLOW</span>
+                </span>
+                <span className="library-art-detail">ATLAS / 001</span>
+              </div>
+              <div className="library-content">
+                <span className="chip">PUBLICADA · AUTOCAD</span>
+                <h2>
+                  SteelFlow <span>→</span>
+                </h2>
+                <p>
+                  Automação técnica para perfis metálicos, geometrias e padronização de desenhos.
+                </p>
+                <div className="library-bottom">
+                  AutoCAD · Windows <span>Ver detalhes →</span>
+                </div>
+              </div>
+            </Link>
+            <Link href="/bibliotecas" className="library-card">
+              <div className="library-art">
+                <span className="library-monogram">+</span>
+                <span className="library-art-detail">CATÁLOGO CAD</span>
+              </div>
+              <div className="library-content">
+                <span className="chip">NOVOS MÓDULOS</span>
+                <h2>
+                  Marketplace <span>→</span>
+                </h2>
+                <p>
+                  Explore todas as bibliotecas publicadas e encontre a automação certa para seu
+                  escritório.
+                </p>
+                <div className="library-bottom">
+                  Licenças flexíveis <span>Explorar catálogo →</span>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <div className="section-heading">
+            <Eyebrow>Engenharia sem atrito</Eyebrow>
+            <h2>Precisão técnica, sem perder o ritmo.</h2>
+            <p>
+              Da instalação à atualização, a plataforma foi desenhada para equipes que dependem do
+              AutoCAD todos os dias.
             </p>
           </div>
           <div className="feature-grid">
             <article className="feature-card">
               <span className="feature-icon">01</span>
               <h3>Automação prática</h3>
-              <p>Transforme operações frequentes em comandos objetivos dentro do AutoCAD.</p>
+              <p>Comandos objetivos dentro do AutoCAD para tarefas que antes consumiam horas.</p>
             </article>
             <article className="feature-card">
               <span className="feature-icon">02</span>
-              <h3>Padronização</h3>
-              <p>Use estilos e regras consistentes para reduzir ajustes repetitivos.</p>
+              <h3>Padronização ABNT</h3>
+              <p>Estilos e regras consistentes para reduzir revisão, retrabalho e divergências.</p>
             </article>
             <article className="feature-card">
               <span className="feature-icon">03</span>
-              <h3>Fluxo de engenharia</h3>
-              <p>Bibliotecas pensadas para projetos e representações técnicas.</p>
+              <h3>Atualizações contínuas</h3>
+              <p>
+                Compatibilidade acompanhada de documentação clara e novas versões centralizadas.
+              </p>
             </article>
           </div>
         </div>
       </section>
-      <section className="section">
-        <div className="container spotlight">
-          <div>
-            <Eyebrow>BIBLIOTECA EM DESTAQUE</Eyebrow>
-            <h2>
-              Conheça o <span className="accent">SteelFlow.</span>
-            </h2>
-            <p>
-              Automação para representação de perfis metálicos, geometria e estilos de planta e
-              corte.
-            </p>
-            <Link className="text-link" href="/bibliotecas/steelflow">
-              Explorar funcionalidades <span>→</span>
-            </Link>
-          </div>
-          <div className="spotlight-panel">
-            <div className="spotlight-label">ATLAS LIBRARY / 001</div>
-            <div className="spotlight-mark">
-              S<span>TEELFLOW</span>
-            </div>
-            <div className="spotlight-meta">
-              <span>DESENHO TÉCNICO</span>
-              <span>PERFIS METÁLICOS</span>
-            </div>
-          </div>
-        </div>
-      </section>
+
       <section className="section section-cta">
         <div className="container cta-content">
-          <Eyebrow>CONHECIMENTO ABERTO</Eyebrow>
-          <h2>Documentação por biblioteca.</h2>
-          <p>Encontre instalação, uso e solução de problemas no contexto certo.</p>
-          <ArrowLink href="/documentacao" secondary>
-            Acessar documentação
+          <Eyebrow>Seu risco: 14 dias de teste</Eyebrow>
+          <h2>Pronto para acelerar seus projetos?</h2>
+          <p>
+            Conheça as bibliotecas, compare planos e comece com uma conta segura em poucos minutos.
+          </p>
+          <ArrowLink href="/bibliotecas" secondary>
+            Criar conta gratuita
           </ArrowLink>
         </div>
       </section>

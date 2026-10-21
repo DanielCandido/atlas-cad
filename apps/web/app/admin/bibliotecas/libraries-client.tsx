@@ -1,5 +1,4 @@
 'use client';
-import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -45,6 +44,20 @@ type Library = {
   releases: Release[];
 };
 
+function normalizeMultiline(value: string) {
+  return value.replace(/\r\n?/g, '\n').replace(/\\n/g, '\n');
+}
+
+function normalizeLibrary(library: Library): Library {
+  return {
+    ...library,
+    description: normalizeMultiline(library.description),
+    features: library.features.map(normalizeMultiline),
+    requirements: library.requirements.map(normalizeMultiline),
+    docs: library.docs.map((doc) => ({ ...doc, markdown: normalizeMultiline(doc.markdown) })),
+  };
+}
+
 async function json(path: string, method = 'GET', body?: unknown) {
   const response = await fetch(`/api/admin/libraries${path}`, {
     method,
@@ -64,7 +77,7 @@ export function AdminLibrariesClient() {
   const [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
     try {
-      const list = (await json('')) as Library[];
+      const list = ((await json('')) as Library[]).map(normalizeLibrary);
       setItems(list);
       setSelected((current) => list.find((item) => item.id === current?.id) || list[0]);
     } catch (reason) {
@@ -95,11 +108,14 @@ export function AdminLibrariesClient() {
     const data = values(event.currentTarget);
     const payload = {
       ...data,
-      features: String(data.features || '')
+      description: normalizeMultiline(String(data.description || '')),
+      features: normalizeMultiline(String(data.features || ''))
         .split('\n')
+        .map((value) => value.trim())
         .filter(Boolean),
-      requirements: String(data.requirements || '')
+      requirements: normalizeMultiline(String(data.requirements || ''))
         .split('\n')
+        .map((value) => value.trim())
         .filter(Boolean),
     };
     void run(() => json(selected ? `/${selected.id}` : '', selected ? 'PUT' : 'POST', payload));
@@ -117,7 +133,11 @@ export function AdminLibrariesClient() {
     if (!selected) return;
     const data = values(event.currentTarget);
     void run(() =>
-      json(`/${selected.id}/docs`, 'PUT', { ...data, position: Number(data.position) }),
+      json(`/${selected.id}/docs`, 'PUT', {
+        ...data,
+        markdown: normalizeMultiline(String(data.markdown || '')),
+        position: Number(data.position),
+      }),
     );
   }
   function upload(event: FormEvent<HTMLFormElement>) {
@@ -142,9 +162,6 @@ export function AdminLibrariesClient() {
             <h1 className="admin-title">Bibliotecas</h1>
             <p>Cadastre, documente e publique instaladores sem novo deploy.</p>
           </div>
-          <Link className="button button-outline" href="/admin">
-            Usuários
-          </Link>
         </div>
         {error && <p className="form-error">{error}</p>}
         <div className="account-grid">
@@ -186,16 +203,30 @@ export function AdminLibrariesClient() {
                 <input name="summary" defaultValue={selected?.summary} required />
               </label>
               <label>
-                Descrição
-                <textarea name="description" defaultValue={selected?.description} required />
+                Descrição em Markdown
+                <textarea
+                  key={`description-${selected?.id || 'new'}`}
+                  name="description"
+                  rows={8}
+                  defaultValue={selected?.description}
+                  required
+                />
               </label>
               <label>
                 Funcionalidades, uma por linha
-                <textarea name="features" defaultValue={selected?.features.join('\n')} />
+                <textarea
+                  key={`features-${selected?.id || 'new'}`}
+                  name="features"
+                  defaultValue={selected?.features.join('\n')}
+                />
               </label>
               <label>
                 Requisitos, um por linha
-                <textarea name="requirements" defaultValue={selected?.requirements.join('\n')} />
+                <textarea
+                  key={`requirements-${selected?.id || 'new'}`}
+                  name="requirements"
+                  defaultValue={selected?.requirements.join('\n')}
+                />
               </label>
               <button className="button button-primary" disabled={busy}>
                 Salvar rascunho
@@ -259,7 +290,13 @@ export function AdminLibrariesClient() {
                   </label>
                   <label>
                     Markdown
-                    <textarea name="markdown" rows={12} required />
+                    <textarea
+                      name="markdown"
+                      rows={18}
+                      spellCheck={false}
+                      placeholder={'## Título da seção\n\nEscreva o conteúdo usando Markdown.'}
+                      required
+                    />
                   </label>
                   <button className="button button-primary" disabled={busy}>
                     Salvar página

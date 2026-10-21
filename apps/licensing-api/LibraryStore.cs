@@ -38,8 +38,9 @@ public sealed partial class LibraryStore(NpgsqlDataSource dataSource, LibraryOpt
                 """, connection, transaction);
             Add(command, id, NormalizeSlug(request.Slug), request.Name.Trim(), NormalizeCode(request.ProductId),
                 NormalizeCode(request.ModuleCode), EmptyToNull(request.CatalogId), request.Summary.Trim(),
-                request.Description.Trim(), JsonSerializer.Serialize(request.Features, Json),
-                JsonSerializer.Serialize(request.Requirements, Json));
+                NormalizeMultiline(request.Description).Trim(),
+                JsonSerializer.Serialize(request.Features.Select(NormalizeMultiline), Json),
+                JsonSerializer.Serialize(request.Requirements.Select(NormalizeMultiline), Json));
             await command.ExecuteNonQueryAsync(ct);
             await AuditAsync(connection, transaction, admin, "library_created", id.ToString(), "Biblioteca criada.", ip, ct);
             await transaction.CommitAsync(ct);
@@ -67,8 +68,9 @@ public sealed partial class LibraryStore(NpgsqlDataSource dataSource, LibraryOpt
                 description=$7,features=$8::jsonb,requirements=$9::jsonb,updated_at=now() WHERE id=$10
             """, connection, transaction);
         Add(command, slug, request.Name.Trim(), NormalizeCode(request.ProductId), NormalizeCode(request.ModuleCode),
-            EmptyToNull(request.CatalogId), request.Summary.Trim(), request.Description.Trim(),
-            JsonSerializer.Serialize(request.Features, Json), JsonSerializer.Serialize(request.Requirements, Json), id);
+            EmptyToNull(request.CatalogId), request.Summary.Trim(), NormalizeMultiline(request.Description).Trim(),
+            JsonSerializer.Serialize(request.Features.Select(NormalizeMultiline), Json),
+            JsonSerializer.Serialize(request.Requirements.Select(NormalizeMultiline), Json), id);
         await command.ExecuteNonQueryAsync(ct);
         await AuditAsync(connection, transaction, admin, "library_updated", id.ToString(), "Biblioteca atualizada.", ip, ct);
         await transaction.CommitAsync(ct);
@@ -114,7 +116,7 @@ public sealed partial class LibraryStore(NpgsqlDataSource dataSource, LibraryOpt
                 group_name=EXCLUDED.group_name,position=EXCLUDED.position,markdown=EXCLUDED.markdown,status=EXCLUDED.status,updated_at=now()
             """, connection, transaction);
         Add(command, Guid.NewGuid(), libraryId, slug, request.Title.Trim(), request.Summary.Trim(), request.Group.Trim(),
-            request.Position, request.Markdown, status);
+            request.Position, NormalizeMultiline(request.Markdown), status);
         await command.ExecuteNonQueryAsync(ct);
         await AuditAsync(connection, transaction, admin, "library_doc_upserted", libraryId.ToString(), slug, ip, ct);
         await transaction.CommitAsync(ct);
@@ -290,12 +292,13 @@ public sealed partial class LibraryStore(NpgsqlDataSource dataSource, LibraryOpt
             { c.Parameters.AddWithValue(row.Item1); await using var r=await c.ExecuteReaderAsync(ct); while(await r.ReadAsync(ct)) plans.Add(new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.GetDecimal(3),r.GetString(4),r.GetBoolean(5))); }
             var docs = new List<LibraryDocView>();
             await using (var c = new NpgsqlCommand("SELECT id,slug,title,summary,group_name,position,markdown,status FROM atlas_library_docs WHERE library_id=$1" + (publicOnly ? " AND status='published'" : "") + " ORDER BY position,title", connection))
-            { c.Parameters.AddWithValue(row.Item1); await using var r=await c.ExecuteReaderAsync(ct); while(await r.ReadAsync(ct)) docs.Add(new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.GetString(3),r.GetString(4),r.GetInt32(5),r.GetString(6),r.GetString(7))); }
+            { c.Parameters.AddWithValue(row.Item1); await using var r=await c.ExecuteReaderAsync(ct); while(await r.ReadAsync(ct)) docs.Add(new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.GetString(3),r.GetString(4),r.GetInt32(5),NormalizeMultiline(r.GetString(6)),r.GetString(7))); }
             var releases = new List<LibraryReleaseView>();
             if (!publicOnly) await using (var c = new NpgsqlCommand("SELECT id,version,sha256,size_bytes,signature_present,created_at,published_at,id=(SELECT active_release_id FROM atlas_libraries WHERE id=$1) FROM atlas_library_releases WHERE library_id=$1 ORDER BY created_at DESC", connection))
             { c.Parameters.AddWithValue(row.Item1); await using var r=await c.ExecuteReaderAsync(ct); while(await r.ReadAsync(ct)) releases.Add(new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.GetInt64(3),r.GetBoolean(4),r.GetFieldValue<DateTimeOffset>(5),r.IsDBNull(6)?null:r.GetFieldValue<DateTimeOffset>(6),r.GetBoolean(7))); }
-            result.Add(new(row.Item1,row.Item2,row.Item3,row.Item4,row.Item5,row.Item6,row.Item7,row.Item8,
-                JsonSerializer.Deserialize<List<string>>(row.Item9,Json)??[],JsonSerializer.Deserialize<List<string>>(row.Item10,Json)??[],
+            result.Add(new(row.Item1,row.Item2,row.Item3,row.Item4,row.Item5,row.Item6,row.Item7,NormalizeMultiline(row.Item8),
+                (JsonSerializer.Deserialize<List<string>>(row.Item9,Json)??[]).Select(NormalizeMultiline).ToList(),
+                (JsonSerializer.Deserialize<List<string>>(row.Item10,Json)??[]).Select(NormalizeMultiline).ToList(),
                 row.Item11,row.Item12 is null?null:$"/api/library-assets/{row.Item1:N}",row.Item13,plans,docs,releases));
         }
         return result;
@@ -322,6 +325,7 @@ public sealed partial class LibraryStore(NpgsqlDataSource dataSource, LibraryOpt
     private static void Validate(LibraryUpsertRequest r) { if(r is null||r.Name.Trim().Length is <2 or >120||r.Summary.Trim().Length is <2 or >300||r.Description.Trim().Length is <2 or >5000)throw new LicenseServerException("library_invalid","Dados da biblioteca invalidos.",400);_ = NormalizeSlug(r.Slug);_ = NormalizeCode(r.ProductId);_ = NormalizeCode(r.ModuleCode); }
     private static string NormalizeSlug(string value) { var v=(value??string.Empty).Trim().ToLowerInvariant();if(!SlugRegex().IsMatch(v))throw new LicenseServerException("slug_invalid","Use apenas letras minusculas, numeros e hifens.",400);return v; }
     private static string NormalizeCode(string value) { var v=(value??string.Empty).Trim().ToLowerInvariant();if(!SlugRegex().IsMatch(v))throw new LicenseServerException("code_invalid","Identificador invalido.",400);return v; }
+    private static string NormalizeMultiline(string value) => (value ?? string.Empty).Replace("\r\n", "\n").Replace("\r", "\n").Replace("\\n", "\n");
     private static string? EmptyToNull(string? value)=>string.IsNullOrWhiteSpace(value)?null:NormalizeCode(value);
     private static string SafeFileName(string value)=>Regex.Replace(value,"[^A-Za-z0-9_-]","-");
     [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$",RegexOptions.CultureInvariant)] private static partial Regex SlugRegex();

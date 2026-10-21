@@ -21,7 +21,7 @@ function inline(value: string) {
   });
 }
 export function Markdown({ source }: { source: string }) {
-  const lines = source.replace(/\r/g, '').split('\n');
+  const lines = source.replace(/\r/g, '').replace(/\\n/g, '\n').split('\n');
   const content: React.ReactNode[] = [];
   let list: string[] = [];
   const flush = () => {

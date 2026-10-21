@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { ArrowLink, CadVisual, Eyebrow } from '@/components/ui';
+import { Markdown } from '@/components/markdown';
 import { getLibrary } from '@/lib/libraries';
 
 export const dynamic = 'force-dynamic';
@@ -36,7 +37,9 @@ export default async function LibraryPage({ params }: { params: Promise<{ slug: 
               {library.name}
               <span className="accent">.</span>
             </h1>
-            <p className="page-intro">{library.description}</p>
+            <div className="page-intro rich-intro">
+              <Markdown source={library.description} />
+            </div>
             <div className="hero-actions">
               <ArrowLink href={`/checkout/${library.slug}`}>Assinar agora</ArrowLink>
               <ArrowLink href={`/documentacao/${library.slug}`} secondary>

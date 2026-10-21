@@ -17,6 +17,7 @@ export async function generateMetadata({
     return {};
   }
 }
+
 export default async function Checkout({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   let library;
@@ -29,16 +30,28 @@ export default async function Checkout({ params }: { params: Promise<{ slug: str
     <section className="section page-top">
       <div className="container checkout-grid">
         <div>
-          <Eyebrow>ATLAS CAD / ASSINATURA</Eyebrow>
+          <Eyebrow>ATLAS CAD / Checkout seguro</Eyebrow>
           <h1 className="page-title">
-            Comece com <span>{library.name}.</span>
+            Adicione <span>{library.name}</span> ao seu fluxo.
           </h1>
           <p className="page-intro">
-            Crie ou acesse sua conta, escolha o plano e pague no ambiente seguro do Asaas.
+            Entre com sua conta ou crie uma durante a compra. Depois, escolha o plano e conclua o
+            pagamento no ambiente seguro do Asaas.
           </p>
           <div className="notice">
-            <strong>Compra segura</strong>
-            <p>O ATLAS CAD não recebe nem armazena dados bancários.</p>
+            <strong>Uma conta, todas as bibliotecas</strong>
+            <p>
+              Novas compras ficam reunidas no mesmo painel, com downloads, licenças e documentação
+              centralizados.
+            </p>
+          </div>
+          <div className="feature-card">
+            <span className="eyebrow">O que acontece agora</span>
+            <ol className="steps">
+              <li>Identifique-se ou crie seu acesso.</li>
+              <li>Escolha o plano e a forma de pagamento.</li>
+              <li>Após a confirmação, o download será liberado em sua conta.</li>
+            </ol>
           </div>
         </div>
         <CheckoutForm librarySlug={library.slug} plans={library.plans} />
