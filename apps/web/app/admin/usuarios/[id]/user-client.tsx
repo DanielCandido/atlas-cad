@@ -118,7 +118,9 @@ export function AdminUserClient() {
                 <dl className="admin-facts">
                   <div>
                     <dt>Plano</dt>
-                    <dd>{currentSubscription.planName}</dd>
+                    <dd>
+                      {currentSubscription.libraryName} · {currentSubscription.planName}
+                    </dd>
                   </div>
                   <div>
                     <dt>Status</dt>
@@ -143,7 +145,7 @@ export function AdminUserClient() {
                         title: 'Cancelar assinatura',
                         description:
                           'Cancela a cobrança no Asaas, remove a concessão manual e revoga a licença e os dispositivos.',
-                        path: `/api/admin/users/${user.id}/subscription/cancel`,
+                        path: `/api/admin/users/${user.id}/subscription/cancel?librarySlug=${encodeURIComponent(currentSubscription.librarySlug)}`,
                         method: 'POST',
                         danger: true,
                       })
@@ -300,7 +302,9 @@ export function AdminUserClient() {
               {user.subscriptions.map((subscription) => (
                 <div className="admin-list-row" key={subscription.id}>
                   <div>
-                    <strong>{subscription.planName}</strong>
+                    <strong>
+                      {subscription.libraryName} · {subscription.planName}
+                    </strong>
                     <small>
                       Criada em {formatDate(subscription.createdAt)} · paga até{' '}
                       {formatDate(subscription.paidThrough)}

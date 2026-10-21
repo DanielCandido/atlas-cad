@@ -48,10 +48,11 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
             SELECT c.license_id,c.generation,l.product_id,l.generation,c.device_fingerprint,c.expires_at,c.used_at,
-                   s.status,s.paid_through,l.revoked_at,l.manual_valid_until
+                   s.status,s.paid_through,l.revoked_at,l.manual_valid_until,lib.module_code
             FROM atlas_activation_codes c
             JOIN atlas_licenses l ON l.id=c.license_id
             LEFT JOIN atlas_subscriptions s ON s.id=l.subscription_id
+            LEFT JOIN atlas_libraries lib ON lib.id=s.library_id
             WHERE c.code_hash=$1 FOR UPDATE OF c,l
             """, connection, transaction);
         command.Parameters.AddWithValue(HashActivationCode(request.ActivationCode));
@@ -69,6 +70,7 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
         var legacyLicense = reader.IsDBNull(7);
         var licenseRevoked = !reader.IsDBNull(9);
         var manualActive = !reader.IsDBNull(10) && reader.GetFieldValue<DateTimeOffset>(10) > DateTimeOffset.UtcNow;
+        var moduleCode = reader.IsDBNull(11) ? string.Empty : reader.GetString(11);
         await reader.DisposeAsync();
         if (used) throw new LicenseServerException("activation_code_invalid", "Activation code is invalid or already used.", 403);
         if (expiresAt <= DateTimeOffset.UtcNow) throw new LicenseServerException("activation_code_expired", "Activation code has expired.", 403);
@@ -89,7 +91,7 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
         { throw new LicenseServerException("activation_limit", "License already has an active device.", 409); }
         await ExecuteAsync(connection, transaction, "UPDATE atlas_activation_codes SET used_at=now() WHERE code_hash=$1", cancellationToken, HashActivationCode(request.ActivationCode));
         await transaction.CommitAsync(cancellationToken);
-        return new ActivationSnapshot { LicenseId = licenseId, ProductId = productId, Generation = licenseGeneration, ActivationId = activationId, DeviceKeySha256 = fingerprint };
+        return new ActivationSnapshot { LicenseId = licenseId, ProductId = productId, Generation = licenseGeneration, ActivationId = activationId, DeviceKeySha256 = fingerprint, ModuleCode = moduleCode };
     }
 
     public async Task<ActivationSnapshot> RenewAsync(RenewalRequest request, CancellationToken cancellationToken)
@@ -105,7 +107,7 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
         await InsertNonceAsync(connection, transaction, request.ActivationId, request.Nonce, "renewal", cancellationToken);
         await ExecuteAsync(connection, transaction, "UPDATE atlas_activations SET last_renewed_at=now() WHERE id=$1", cancellationToken, request.ActivationId);
         await transaction.CommitAsync(cancellationToken);
-        return new ActivationSnapshot { LicenseId = row.LicenseId, ProductId = row.ProductId, Generation = row.Generation, ActivationId = request.ActivationId, DeviceKeySha256 = row.Fingerprint };
+        return new ActivationSnapshot { LicenseId = row.LicenseId, ProductId = row.ProductId, Generation = row.Generation, ActivationId = request.ActivationId, DeviceKeySha256 = row.Fingerprint, ModuleCode = row.ModuleCode };
     }
 
     public async Task<long> AuthorizeCatalogKeyAsync(CatalogKeyRequest request, CancellationToken cancellationToken)
@@ -166,9 +168,10 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
     {
         await using var command = new NpgsqlCommand("""
             SELECT a.license_id,l.product_id,a.generation,l.generation,a.device_public_key_x,a.device_public_key_y,
-                   a.device_fingerprint,a.last_renewed_at,a.revoked_at,s.status,s.paid_through,l.revoked_at,l.manual_valid_until
+                   a.device_fingerprint,a.last_renewed_at,a.revoked_at,s.status,s.paid_through,l.revoked_at,l.manual_valid_until,lib.module_code
             FROM atlas_activations a JOIN atlas_licenses l ON l.id=a.license_id
-            LEFT JOIN atlas_subscriptions s ON s.id=l.subscription_id WHERE a.id=$1 FOR UPDATE OF a,l
+            LEFT JOIN atlas_subscriptions s ON s.id=l.subscription_id
+            LEFT JOIN atlas_libraries lib ON lib.id=s.library_id WHERE a.id=$1 FOR UPDATE OF a,l
             """, connection, transaction);
         command.Parameters.AddWithValue(activationId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -176,7 +179,8 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
         return new ActivationRow(reader.GetString(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3),
             reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetFieldValue<DateTimeOffset>(7), !reader.IsDBNull(8),
             reader.IsDBNull(9) ? null : reader.GetString(9), reader.IsDBNull(10) ? null : reader.GetFieldValue<DateTimeOffset>(10),
-            !reader.IsDBNull(11), reader.IsDBNull(12) ? null : reader.GetFieldValue<DateTimeOffset>(12));
+            !reader.IsDBNull(11), reader.IsDBNull(12) ? null : reader.GetFieldValue<DateTimeOffset>(12),
+            reader.IsDBNull(13) ? string.Empty : reader.GetString(13));
     }
 
     private static void EnsureActive(ActivationRow row)
@@ -225,5 +229,5 @@ public sealed class PostgresLicensingStore(NpgsqlDataSource dataSource)
 
     private sealed record ActivationRow(string LicenseId, string ProductId, int Generation, int LicenseGeneration, string X, string Y,
         string Fingerprint, DateTimeOffset LastRenewedAt, bool Revoked, string? SubscriptionStatus, DateTimeOffset? PaidThrough,
-        bool LicenseRevoked, DateTimeOffset? ManualValidUntil);
+        bool LicenseRevoked, DateTimeOffset? ManualValidUntil, string ModuleCode);
 }

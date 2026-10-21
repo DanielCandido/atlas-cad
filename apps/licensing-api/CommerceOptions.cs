@@ -52,8 +52,8 @@ public sealed class CommerceOptions
                 Path.Combine(contentRoot, "App_Data", "Desinstalar-AtlasCad.exe")),
             Plans = new Dictionary<string, PlanDefinition>(StringComparer.OrdinalIgnoreCase)
             {
-                ["monthly"] = new("monthly", "MLINES Mensal", monthly, "MONTHLY"),
-                ["yearly"] = new("yearly", "MLINES Anual", yearly, "YEARLY")
+                ["monthly"] = new("monthly", "SteelFlow Mensal", monthly, "MONTHLY"),
+                ["yearly"] = new("yearly", "SteelFlow Anual", yearly, "YEARLY")
             }
         };
     }

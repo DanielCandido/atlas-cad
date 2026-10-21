@@ -8,11 +8,20 @@ namespace Atlas.AutoCAD.Adapter;
 
 internal sealed class SecureCatalogStore
 {
-    private const string CatalogFileName = "steel.atlascatalog";
+    private const string CatalogFileName = "steelflow.atlascatalog";
     private readonly string _root = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AtlasCad", "catalog", "v2");
 
-    public string CatalogPath => Path.Combine(EnsureRoot(), CatalogFileName);
+    private string CanonicalCatalogPath => Path.Combine(EnsureRoot(), CatalogFileName);
+    public string CatalogPath
+    {
+        get
+        {
+            var canonical = CanonicalCatalogPath;
+            var legacy = Path.Combine(EnsureRoot(), "steel.atlascatalog");
+            return File.Exists(canonical) || !File.Exists(legacy) ? canonical : legacy;
+        }
+    }
 
     public CatalogPackageHeader Inspect() => InspectPath(CatalogPath, installed: true);
 
@@ -62,7 +71,7 @@ internal sealed class SecureCatalogStore
         }
         finally { if (plaintext != null) Array.Clear(plaintext, 0, plaintext.Length); }
 
-        var destination = CatalogPath;
+        var destination = CanonicalCatalogPath;
         var temporary = destination + ".tmp";
         if (File.Exists(temporary)) File.Delete(temporary);
         try

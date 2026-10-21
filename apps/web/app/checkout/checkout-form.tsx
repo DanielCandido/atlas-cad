@@ -1,20 +1,18 @@
 'use client';
-
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export function CheckoutForm({
-  monthlyPrice,
-  yearlyPrice,
+  librarySlug,
+  plans,
 }: {
-  monthlyPrice: string;
-  yearlyPrice: string;
+  librarySlug: string;
+  plans: { code: string; name: string; price: number; cycle: string }[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('CREDIT_CARD');
-
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -38,9 +36,9 @@ export function CheckoutForm({
     router.push('/minha-conta');
     router.refresh();
   }
-
   return (
     <form className="checkout-summary form-stack" onSubmit={submit}>
+      <input type="hidden" name="librarySlug" value={librarySlug} />
       <div className="checkout-head">DADOS DA ASSINATURA</div>
       <label>
         Nome completo
@@ -55,24 +53,24 @@ export function CheckoutForm({
         <input name="taxId" inputMode="numeric" required minLength={11} />
       </label>
       <label>
-        Crie uma senha
+        Senha da conta
         <input
           name="password"
           type="password"
-          autoComplete="new-password"
+          autoComplete="current-password"
           required
           minLength={10}
         />
       </label>
       <label>
         Plano
-        <select name="planCode" defaultValue="monthly">
-          <option value="monthly">
-            Mensal — R$ {Number(monthlyPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </option>
-          <option value="yearly">
-            Anual — R$ {Number(yearlyPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </option>
+        <select name="planCode" defaultValue={plans[0]?.code}>
+          {plans.map((plan) => (
+            <option value={plan.code} key={plan.code}>
+              {plan.name} — R${' '}
+              {Number(plan.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </option>
+          ))}
         </select>
       </label>
       <label>
@@ -91,25 +89,19 @@ export function CheckoutForm({
         <>
           <label>
             Telefone com DDD
-            <input name="phone" type="tel" inputMode="tel" autoComplete="tel" required />
+            <input name="phone" type="tel" required />
           </label>
           <label>
             CEP
-            <input
-              name="postalCode"
-              inputMode="numeric"
-              autoComplete="postal-code"
-              required
-              minLength={8}
-            />
+            <input name="postalCode" inputMode="numeric" required minLength={8} />
           </label>
           <label>
             Logradouro
-            <input name="address" autoComplete="street-address" required />
+            <input name="address" required />
           </label>
           <label>
             Número
-            <input name="addressNumber" autoComplete="address-line2" required />
+            <input name="addressNumber" required />
           </label>
           <label>
             Bairro
@@ -125,10 +117,7 @@ export function CheckoutForm({
       <button className="button button-primary" disabled={busy}>
         {busy ? 'Criando assinatura…' : 'Continuar para o pagamento →'}
       </button>
-      <small>
-        No cartão, você será direcionado ao ambiente seguro do Asaas. O ATLAS CAD não recebe nem
-        armazena os dados do seu cartão.
-      </small>
+      <small>Use a mesma senha para adicionar outra biblioteca à sua conta existente.</small>
     </form>
   );
 }

@@ -2,5 +2,7 @@
   "licenseApiBaseUrl": "https://api.atlasengenharia.site",
   "signingKeyId": "development-placeholder",
   "signingKeyX": "",
-  "signingKeyY": ""
+  "signingKeyY": "",
+  "librarySlug": "steelflow",
+  "productId": "atlas-steelflow"
 }

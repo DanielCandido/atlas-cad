@@ -8,7 +8,8 @@ namespace Atlas.Licensing.Api;
 
 public sealed class InstallerPairingStore(
     NpgsqlDataSource dataSource,
-    CommerceOptions commerceOptions)
+    CommerceOptions commerceOptions,
+    LibraryStore libraries)
 {
     private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);
     private const int LifetimeMinutes = 10;
@@ -18,6 +19,7 @@ public sealed class InstallerPairingStore(
         InstallerPairingCreateRequest request, CancellationToken cancellationToken)
     {
         ValidateCreate(request);
+        var library = await libraries.ResolveAsync(string.IsNullOrWhiteSpace(request.LibrarySlug) ? "steelflow" : request.LibrarySlug, cancellationToken);
         ECParameters parameters;
         try { parameters = LicenseCrypto.PublicParameters(request.DevicePublicKeyX, request.DevicePublicKeyY); }
         catch { throw new LicenseServerException("device_key_invalid", "A chave do dispositivo é inválida.", 400); }
@@ -34,8 +36,8 @@ public sealed class InstallerPairingStore(
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
             INSERT INTO atlas_installer_pairings
-              (id,user_code_hash,device_public_key_x,device_public_key_y,device_fingerprint,detected_versions,status,expires_at)
-            VALUES ($1,$2,$3,$4,$5,$6::jsonb,'pending',$7)
+              (id,user_code_hash,device_public_key_x,device_public_key_y,device_fingerprint,detected_versions,status,expires_at,library_id)
+            VALUES ($1,$2,$3,$4,$5,$6::jsonb,'pending',$7,$8)
             """, connection);
         command.Parameters.AddWithValue(id);
         command.Parameters.AddWithValue(HashCode(userCode));
@@ -44,6 +46,7 @@ public sealed class InstallerPairingStore(
         command.Parameters.AddWithValue(fingerprint);
         command.Parameters.AddWithValue(JsonSerializer.Serialize(request.DetectedVersions, WebJson));
         command.Parameters.AddWithValue(expires);
+        command.Parameters.AddWithValue(library.Id);
         await command.ExecuteNonQueryAsync(cancellationToken);
         return new InstallerPairingCreateResponse
         {
@@ -88,8 +91,9 @@ public sealed class InstallerPairingStore(
             throw new LicenseServerException("pairing_invalid", "A vinculação aprovada está incompleta.", 409);
 
         await using var license = new NpgsqlCommand("""
-            SELECT l.generation,l.product_id,s.status,s.paid_through,l.revoked_at,l.manual_valid_until
+            SELECT l.generation,l.product_id,s.status,s.paid_through,l.revoked_at,l.manual_valid_until,lib.module_code
             FROM atlas_licenses l JOIN atlas_subscriptions s ON s.id=l.subscription_id
+            JOIN atlas_libraries lib ON lib.id=s.library_id
             WHERE l.id=$1 AND s.customer_id=$2 FOR UPDATE OF l,s
             """, connection, transaction);
         license.Parameters.AddWithValue(row.LicenseId);
@@ -99,6 +103,7 @@ public sealed class InstallerPairingStore(
             throw new LicenseServerException("license_not_found", "Licença não encontrada.", 404);
         var generation = reader.GetInt32(0);
         var productId = reader.GetString(1);
+        var moduleCode = reader.GetString(6);
         var activeSubscription = reader.IsDBNull(4) &&
             ((reader.GetString(2) == "active" && !reader.IsDBNull(3) && reader.GetFieldValue<DateTimeOffset>(3) > DateTimeOffset.UtcNow) ||
              (!reader.IsDBNull(5) && reader.GetFieldValue<DateTimeOffset>(5) > DateTimeOffset.UtcNow));
@@ -159,7 +164,8 @@ public sealed class InstallerPairingStore(
             ProductId = productId,
             Generation = generation,
             ActivationId = activationId,
-            DeviceKeySha256 = row.Fingerprint
+            DeviceKeySha256 = row.Fingerprint,
+            ModuleCode = moduleCode
         };
     }
 
@@ -169,9 +175,10 @@ public sealed class InstallerPairingStore(
         var row = await ReadPairingByCodeAsync(userCode, cancellationToken);
         if (row.CustomerId != null && row.CustomerId != customerId)
             throw new LicenseServerException("pairing_not_found", "Vinculação não encontrada.", 404);
-        var activeFingerprint = await FindActiveFingerprintAsync(customerId, cancellationToken);
+        var activeFingerprint = await FindActiveFingerprintAsync(customerId, row.LibraryId, cancellationToken);
         return new PortalPairingSnapshot(
             NormalizeCode(userCode),
+            row.LibrarySlug,
             row.ExpiresAt <= DateTimeOffset.UtcNow && row.Status is "pending" or "approved" ? "expired" : row.Status,
             row.Fingerprint,
             row.DetectedVersions,
@@ -193,11 +200,12 @@ public sealed class InstallerPairingStore(
         await using var license = new NpgsqlCommand("""
             SELECT l.id,l.generation
             FROM atlas_licenses l JOIN atlas_subscriptions s ON s.id=l.subscription_id
-            WHERE s.customer_id=$1 AND l.revoked_at IS NULL
+            WHERE s.customer_id=$1 AND s.library_id=$2 AND l.revoked_at IS NULL
               AND ((s.status='active' AND s.paid_through>now()) OR l.manual_valid_until>now())
             ORDER BY s.created_at DESC LIMIT 1 FOR UPDATE OF l
             """, connection, transaction);
         license.Parameters.AddWithValue(customerId);
+        license.Parameters.AddWithValue(row.LibraryId);
         await using var reader = await license.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
             throw new LicenseServerException("subscription_inactive", "O pagamento precisa estar confirmado.", 403);
@@ -235,16 +243,17 @@ public sealed class InstallerPairingStore(
             throw new LicenseServerException("pairing_unavailable", "A vinculação não está disponível.", 409);
     }
 
-    private async Task<string?> FindActiveFingerprintAsync(Guid customerId, CancellationToken cancellationToken)
+    private async Task<string?> FindActiveFingerprintAsync(Guid customerId, Guid libraryId, CancellationToken cancellationToken)
     {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
             SELECT a.device_fingerprint FROM atlas_activations a
             JOIN atlas_licenses l ON l.id=a.license_id JOIN atlas_subscriptions s ON s.id=l.subscription_id
-            WHERE s.customer_id=$1 AND a.revoked_at IS NULL AND a.generation=l.generation
+            WHERE s.customer_id=$1 AND s.library_id=$2 AND a.revoked_at IS NULL AND a.generation=l.generation
             ORDER BY a.activated_at DESC LIMIT 1
             """, connection);
         command.Parameters.AddWithValue(customerId);
+        command.Parameters.AddWithValue(libraryId);
         return await command.ExecuteScalarAsync(cancellationToken) as string;
     }
 
@@ -272,7 +281,8 @@ public sealed class InstallerPairingStore(
         var lockClause = transaction == null ? string.Empty : " FOR UPDATE";
         await using var command = new NpgsqlCommand($"""
             SELECT id,device_public_key_x,device_public_key_y,device_fingerprint,detected_versions::text,status,
-                   customer_id,license_id,replace_existing,activation_id,expires_at
+                   customer_id,license_id,replace_existing,activation_id,expires_at,library_id,
+                   (SELECT slug FROM atlas_libraries WHERE id=library_id)
             FROM atlas_installer_pairings WHERE {predicate}{lockClause}
             """, connection, transaction);
         command.Parameters.AddWithValue(value);
@@ -283,15 +293,17 @@ public sealed class InstallerPairingStore(
             reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
             JsonSerializer.Deserialize<List<string>>(reader.GetString(4), WebJson) ?? new List<string>(),
             reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetGuid(6), reader.IsDBNull(7) ? null : reader.GetString(7),
-            reader.GetBoolean(8), reader.IsDBNull(9) ? null : reader.GetString(9), reader.GetFieldValue<DateTimeOffset>(10));
+            reader.GetBoolean(8), reader.IsDBNull(9) ? null : reader.GetString(9), reader.GetFieldValue<DateTimeOffset>(10), reader.GetGuid(11), reader.GetString(12));
     }
 
     private static async Task<ActivationSnapshot> ReadActivationSnapshotAsync(
         NpgsqlConnection connection, NpgsqlTransaction transaction, string activationId, CancellationToken cancellationToken)
     {
         await using var command = new NpgsqlCommand("""
-            SELECT a.license_id,l.product_id,a.generation,a.id,a.device_fingerprint
-            FROM atlas_activations a JOIN atlas_licenses l ON l.id=a.license_id WHERE a.id=$1
+            SELECT a.license_id,l.product_id,a.generation,a.id,a.device_fingerprint,COALESCE(lib.module_code,'')
+            FROM atlas_activations a JOIN atlas_licenses l ON l.id=a.license_id
+            LEFT JOIN atlas_subscriptions s ON s.id=l.subscription_id LEFT JOIN atlas_libraries lib ON lib.id=s.library_id
+            WHERE a.id=$1
             """, connection, transaction);
         command.Parameters.AddWithValue(activationId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -300,7 +312,7 @@ public sealed class InstallerPairingStore(
         return new ActivationSnapshot
         {
             LicenseId = reader.GetString(0), ProductId = reader.GetString(1), Generation = reader.GetInt32(2),
-            ActivationId = reader.GetString(3), DeviceKeySha256 = reader.GetString(4)
+            ActivationId = reader.GetString(3), DeviceKeySha256 = reader.GetString(4), ModuleCode = reader.GetString(5)
         };
     }
 
@@ -354,5 +366,5 @@ public sealed class InstallerPairingStore(
     }
 
     private sealed record PairingRow(string Id, string X, string Y, string Fingerprint, List<string> DetectedVersions,
-        string Status, Guid? CustomerId, string? LicenseId, bool ReplaceExisting, string? ActivationId, DateTimeOffset ExpiresAt);
+        string Status, Guid? CustomerId, string? LicenseId, bool ReplaceExisting, string? ActivationId, DateTimeOffset ExpiresAt, Guid LibraryId, string LibrarySlug);
 }

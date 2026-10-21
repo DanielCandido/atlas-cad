@@ -4,14 +4,18 @@ using Atlas.Licensing;
 using Atlas.Licensing.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Http.Features;
 using Npgsql;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 var licensingOptions = LicensingServerOptions.FromEnvironment(builder.Environment.ContentRootPath);
 var commerceOptions = CommerceOptions.FromEnvironment(builder.Environment.ContentRootPath);
+var libraryOptions = LibraryOptions.FromEnvironment(builder.Environment.ContentRootPath);
 builder.Services.AddSingleton(licensingOptions);
 builder.Services.AddSingleton(commerceOptions);
+builder.Services.AddSingleton(libraryOptions);
+builder.Services.Configure<FormOptions>(value => value.MultipartBodyLengthLimit = libraryOptions.MaximumUploadBytes);
 builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(commerceOptions.ConnectionString));
 builder.Services.AddHostedService<DatabaseInitializer>();
 builder.Services.AddSingleton<SigningKeyProvider>();
@@ -20,6 +24,7 @@ builder.Services.AddSingleton<CommerceStore>();
 builder.Services.AddSingleton<InstallerPairingStore>();
 builder.Services.AddSingleton<CatalogKeyProvider>();
 builder.Services.AddSingleton<AdminStore>();
+builder.Services.AddSingleton<LibraryStore>();
 builder.Services.AddHttpClient<AsaasClient>();
 builder.Services.AddRateLimiter(options =>
 {
@@ -54,14 +59,23 @@ app.Use(async (context, next) =>
 });
 app.UseRateLimiter();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "atlas-licensing-api" }));
-app.MapGet("/api/products", () => Results.Ok(new[]
+app.MapGet("/api/products", async (LibraryStore libraries, CancellationToken ct) =>
+    Results.Ok((await libraries.ListPublicAsync(ct)).Select(value => new { id = value.ProductId, name = value.Name, status = "active" })));
+app.MapGet("/api/v1/libraries", async (LibraryStore libraries, CancellationToken ct) =>
+    Results.Ok(await libraries.ListPublicAsync(ct)));
+app.MapGet("/api/v1/libraries/{slug}", async (string slug, LibraryStore libraries, CancellationToken ct) =>
+    Results.Ok(await libraries.GetPublicAsync(slug, ct)));
+app.MapGet("/api/v1/libraries/{slug}/plans", async (string slug, LibraryStore libraries, CancellationToken ct) =>
+    Results.Ok((await libraries.GetPublicAsync(slug, ct)).Plans));
+app.MapGet("/api/v1/libraries/{slug}/docs", async (string slug, LibraryStore libraries, CancellationToken ct) =>
+    Results.Ok((await libraries.GetPublicAsync(slug, ct)).Docs));
+app.MapGet("/api/v1/libraries/{slug}/docs/{docSlug}", async (string slug, string docSlug, LibraryStore libraries, CancellationToken ct) =>
 {
-    new { id = LicensingProtocol.ProductId, name = "ATLAS MLINE PRO", status = "active" }
-}));
-app.MapGet("/api/v1/plans", (CommerceOptions options) => Results.Ok(options.Plans.Values.Select(plan => new
-{
-    code = plan.Code, name = plan.Name, price = plan.Price, cycle = plan.Cycle
-})));
+    var document = (await libraries.GetPublicAsync(slug, ct)).Docs.FirstOrDefault(value => value.Slug == docSlug);
+    return document is null ? Results.NotFound() : Results.Ok(document);
+});
+app.MapGet("/api/v1/plans", async (LibraryStore libraries, CancellationToken ct) =>
+    Results.Ok((await libraries.GetPublicAsync("steelflow", ct)).Plans));
 app.MapGet("/api/v1/signing-key", (SigningKeyProvider signing) => Results.Ok(signing.PublicDescriptor));
 
 app.MapPost("/api/v1/admin/auth/login", async (
@@ -105,6 +119,64 @@ app.MapGet("/api/v1/admin/users/{customerId:guid}", async (
     return Results.Ok(await store.GetUserAsync(customerId, cancellationToken));
 });
 
+app.MapGet("/api/v1/admin/libraries", async (HttpContext context, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.ListAdminAsync(ct));
+});
+app.MapGet("/api/v1/admin/libraries/{id:guid}", async (HttpContext context, Guid id, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.GetAdminAsync(id, ct));
+});
+app.MapPost("/api/v1/admin/libraries", async (HttpContext context, LibraryUpsertRequest request, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    var admin = await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.CreateAsync(admin, request, ClientIp(context), ct));
+}).RequireRateLimiting("license-write");
+app.MapPut("/api/v1/admin/libraries/{id:guid}", async (HttpContext context, Guid id, LibraryUpsertRequest request, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    var admin = await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.UpdateAsync(admin, id, request, ClientIp(context), ct));
+}).RequireRateLimiting("license-write");
+app.MapPut("/api/v1/admin/libraries/{id:guid}/plans", async (HttpContext context, Guid id, LibraryPlanUpsertRequest request, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    var admin = await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.UpsertPlanAsync(admin, id, request, ClientIp(context), ct));
+}).RequireRateLimiting("license-write");
+app.MapPut("/api/v1/admin/libraries/{id:guid}/docs", async (HttpContext context, Guid id, LibraryDocUpsertRequest request, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    var admin = await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.UpsertDocAsync(admin, id, request, ClientIp(context), ct));
+}).RequireRateLimiting("license-write");
+app.MapDelete("/api/v1/admin/libraries/{id:guid}/plans/{code}", async (HttpContext context, Guid id, string code, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    var admin = await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.DeletePlanAsync(admin, id, code, ClientIp(context), ct));
+}).RequireRateLimiting("license-write");
+app.MapDelete("/api/v1/admin/libraries/{id:guid}/docs/{slug}", async (HttpContext context, Guid id, string slug, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    var admin = await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.DeleteDocAsync(admin, id, slug, ClientIp(context), ct));
+}).RequireRateLimiting("license-write");
+app.MapPost("/api/v1/admin/libraries/{id:guid}/releases", async (HttpContext context, Guid id, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    var admin = await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    var form = await context.Request.ReadFormAsync(ct);
+    var file = form.Files.GetFile("file") ?? throw new LicenseServerException("release_file_missing", "Selecione o instalador.", 400);
+    return Results.Ok(await libraries.UploadReleaseAsync(admin, id, form["version"].ToString(), file, ClientIp(context), ct));
+}).RequireRateLimiting("license-write");
+app.MapPost("/api/v1/admin/libraries/{id:guid}/publish/{releaseId:guid}", async (HttpContext context, Guid id, Guid releaseId, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    var admin = await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.PublishAsync(admin, id, releaseId, ClientIp(context), ct));
+}).RequireRateLimiting("license-write");
+app.MapPost("/api/v1/admin/libraries/{id:guid}/archive", async (HttpContext context, Guid id, AdminStore admins, LibraryStore libraries, CancellationToken ct) =>
+{
+    var admin = await admins.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    return Results.Ok(await libraries.ArchiveAsync(admin, id, ClientIp(context), ct));
+}).RequireRateLimiting("license-write");
+
 app.MapPut("/api/v1/admin/licenses/{licenseId}/manual-grant", async (
     HttpContext context, string licenseId, AdminManualGrantRequest request, AdminStore store, CancellationToken cancellationToken) =>
 {
@@ -146,10 +218,10 @@ app.MapPost("/api/v1/admin/activations/{activationId}/revoke", async (
 }).RequireRateLimiting("license-write");
 
 app.MapPost("/api/v1/admin/users/{customerId:guid}/subscription/cancel", async (
-    HttpContext context, Guid customerId, AdminReasonRequest request, AdminStore store, CancellationToken cancellationToken) =>
+    HttpContext context, Guid customerId, string? librarySlug, AdminReasonRequest request, AdminStore store, CancellationToken cancellationToken) =>
 {
     var admin = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
-    await store.CancelSubscriptionAsync(admin, customerId, request, ClientIp(context), cancellationToken);
+    await store.CancelSubscriptionAsync(admin, customerId, librarySlug ?? "steelflow", request, ClientIp(context), cancellationToken);
     return Results.NoContent();
 }).RequireRateLimiting("license-write");
 
@@ -230,13 +302,13 @@ app.MapGet("/api/v1/portal", async (HttpContext context, CommerceStore store, Ca
 app.MapPut("/api/v1/portal/plan", async (HttpContext context, ChangePlanRequest request, CommerceStore store, CancellationToken cancellationToken) =>
 {
     var customerId = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
-    return Results.Ok(await store.ChangePlanAsync(customerId, request.PlanCode, cancellationToken));
+    return Results.Ok(await store.ChangePlanAsync(customerId, request.LibrarySlug, request.PlanCode, cancellationToken));
 }).RequireRateLimiting("license-write");
 
-app.MapDelete("/api/v1/portal/subscription", async (HttpContext context, CommerceStore store, CancellationToken cancellationToken) =>
+app.MapDelete("/api/v1/portal/subscription", async (HttpContext context, string? librarySlug, CommerceStore store, CancellationToken cancellationToken) =>
 {
     var customerId = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
-    await store.CancelAsync(customerId, cancellationToken);
+    await store.CancelAsync(customerId, librarySlug ?? "steelflow", cancellationToken);
     return Results.NoContent();
 }).RequireRateLimiting("license-write");
 
@@ -250,13 +322,13 @@ app.MapPost("/api/v1/portal/subscription/retry", async (
 app.MapPost("/api/v1/portal/machines", async (HttpContext context, RegisterMachineRequest request, CommerceStore store, CancellationToken cancellationToken) =>
 {
     var customerId = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
-    return Results.Ok(await store.RegisterMachineAsync(customerId, request.MachineIdentifier, cancellationToken));
+    return Results.Ok(await store.RegisterMachineAsync(customerId, request.LibrarySlug, request.MachineIdentifier, cancellationToken));
 }).RequireRateLimiting("license-write");
 
-app.MapDelete("/api/v1/portal/machines", async (HttpContext context, CommerceStore store, CancellationToken cancellationToken) =>
+app.MapDelete("/api/v1/portal/machines", async (HttpContext context, string? librarySlug, CommerceStore store, CancellationToken cancellationToken) =>
 {
     var customerId = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
-    await store.DeactivateMachineAsync(customerId, cancellationToken);
+    await store.DeactivateMachineAsync(customerId, librarySlug ?? "steelflow", cancellationToken);
     return Results.NoContent();
 }).RequireRateLimiting("license-write");
 
@@ -290,6 +362,23 @@ app.MapGet("/api/v1/portal/installer", async (
     var customerId = await store.AuthenticateAsync(context.Request.Headers.Authorization, cancellationToken);
     var path = await store.RequireInstallerDownloadAsync(customerId, cancellationToken);
     return Results.File(path, "application/vnd.microsoft.portable-executable", "Instalador-AtlasCad.exe", enableRangeProcessing: true);
+});
+
+app.MapGet("/api/v1/portal/libraries/{slug}/installer", async (
+    HttpContext context, string slug, CommerceStore commerce, LibraryStore libraries, CancellationToken ct) =>
+{
+    var customerId = await commerce.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    var download = await libraries.RequireDownloadAsync(customerId, slug, ct);
+    context.Response.Headers.Append("X-Checksum-Sha256", download.Sha256);
+    return Results.File(download.Path, "application/vnd.microsoft.portable-executable", download.DownloadName, enableRangeProcessing: true);
+});
+
+app.MapGet("/api/v1/portal/libraries/{slug}/uninstaller", async (
+    HttpContext context, string slug, CommerceStore commerce, LibraryStore libraries, CancellationToken ct) =>
+{
+    var customerId = await commerce.AuthenticateAsync(context.Request.Headers.Authorization, ct);
+    var download = await libraries.RequireDownloadAsync(customerId, slug, ct);
+    return Results.File(download.Path, "application/vnd.microsoft.portable-executable", download.DownloadName.Replace("Instalador-", "Desinstalar-"), enableRangeProcessing: true);
 });
 
 app.MapGet("/api/v1/portal/uninstaller", async (

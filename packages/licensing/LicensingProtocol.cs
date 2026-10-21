@@ -7,7 +7,10 @@ namespace Atlas.Licensing;
 public static class LicensingProtocol
 {
     public const int CurrentVersion = 1;
-    public const string ProductId = "atlas-mline-pro";
+    public const string ProductId = "atlas-steelflow";
+    public const string LegacyProductId = "atlas-mline-pro";
+    public const string ModuleCode = "steelflow";
+    public const string LegacyModuleCode = "mline";
     public const string Issuer = "atlas-cad-licensing";
     public const string DevelopmentKeyId = "atlas-dev-2026-01";
     public const string TokenPrefix = "ATL1";
@@ -160,6 +163,7 @@ public sealed class InstallerPairingCreateRequest
     [DataMember(Name = "nonce", IsRequired = true, Order = 4)] public string Nonce { get; set; } = string.Empty;
     [DataMember(Name = "detectedVersions", IsRequired = true, Order = 5)] public List<string> DetectedVersions { get; set; } = new List<string>();
     [DataMember(Name = "proof", IsRequired = true, Order = 6)] public string Proof { get; set; } = string.Empty;
+    [DataMember(Name = "librarySlug", IsRequired = false, EmitDefaultValue = false, Order = 7)] public string LibrarySlug { get; set; } = string.Empty;
 }
 
 [DataContract]

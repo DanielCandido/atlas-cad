@@ -46,7 +46,7 @@ public static class LicenseCrypto
             if (claims.ProtocolVersion != LicensingProtocol.CurrentVersion)
                 return EntitlementValidationResult.Invalid("token_protocol_unsupported");
             if (!string.Equals(claims.Issuer, LicensingProtocol.Issuer, StringComparison.Ordinal) ||
-                !string.Equals(claims.ProductId, expectedProduct, StringComparison.Ordinal))
+                !ProductMatches(claims.ProductId, expectedProduct))
                 return EntitlementValidationResult.Invalid("token_product_invalid");
             if (!string.Equals(claims.DeviceKeySha256, expectedDeviceKeySha256, StringComparison.Ordinal))
                 return EntitlementValidationResult.Invalid("token_device_mismatch");
@@ -55,7 +55,9 @@ public static class LicenseCrypto
                 return EntitlementValidationResult.Invalid("token_not_yet_valid");
             if (claims.ExpiresAtUnix <= nowUnix)
                 return EntitlementValidationResult.Invalid("token_expired");
-            if (!claims.Modules.Contains("mline"))
+            if (expectedProduct is LicensingProtocol.ProductId or LicensingProtocol.LegacyProductId &&
+                !claims.Modules.Contains(LicensingProtocol.ModuleCode) &&
+                !claims.Modules.Contains(LicensingProtocol.LegacyModuleCode))
                 return EntitlementValidationResult.Invalid("token_module_missing");
             return EntitlementValidationResult.Valid(claims);
         }
@@ -69,6 +71,11 @@ public static class LicenseCrypto
         }
     }
 
+    private static bool ProductMatches(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.Ordinal) ||
+        (expected is LicensingProtocol.ProductId or LicensingProtocol.LegacyProductId &&
+         actual is LicensingProtocol.ProductId or LicensingProtocol.LegacyProductId);
+
     public static byte[] ActivationProofBytes(ActivationRequest request) => Encoding.UTF8.GetBytes(
         "activate\n" + request.ProtocolVersion + "\n" + request.ActivationCode.Trim().ToUpperInvariant() +
         "\n" + request.DevicePublicKeyX + "\n" + request.DevicePublicKeyY);
@@ -81,7 +88,8 @@ public static class LicenseCrypto
 
     public static byte[] InstallerPairingCreateProofBytes(InstallerPairingCreateRequest request) => Encoding.UTF8.GetBytes(
         "installer-pairing-create\n" + request.ProtocolVersion + "\n" + request.DevicePublicKeyX + "\n" +
-        request.DevicePublicKeyY + "\n" + request.Nonce + "\n" + string.Join("|", request.DetectedVersions));
+        request.DevicePublicKeyY + "\n" + request.Nonce + "\n" + string.Join("|", request.DetectedVersions) +
+        (string.IsNullOrWhiteSpace(request.LibrarySlug) ? string.Empty : "\n" + request.LibrarySlug.Trim().ToLowerInvariant()));
 
     public static byte[] InstallerPairingProofBytes(string operation, string pairingId, InstallerPairingProofRequest request) => Encoding.UTF8.GetBytes(
         "installer-pairing-" + operation + "\n" + request.ProtocolVersion + "\n" + pairingId + "\n" + request.Nonce);

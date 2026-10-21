@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 
 type Subscription = {
   id: string;
+  librarySlug: string;
+  libraryName: string;
   planCode: string;
   planName: string;
   status: string;
@@ -20,6 +22,8 @@ type Subscription = {
 type Portal = {
   customerName: string;
   email: string;
+  librarySlug: string;
+  libraryName: string;
   planCode: string;
   planName: string;
   subscriptionStatus: string;
@@ -133,9 +137,12 @@ export function PortalClient() {
     if (result.paymentUrl) window.location.assign(result.paymentUrl);
   }
 
-  async function cancel() {
+  async function cancel(librarySlug = portal?.librarySlug || 'steelflow') {
     if (!confirm('Cancelar a assinatura e revogar a ativação atual?')) return;
-    const response = await fetch('/api/portal/subscription', { method: 'DELETE' });
+    const response = await fetch(
+      `/api/portal/subscription?librarySlug=${encodeURIComponent(librarySlug)}`,
+      { method: 'DELETE' },
+    );
     if (!response.ok) {
       const result = await response.json();
       return setError(result.message);
@@ -145,7 +152,10 @@ export function PortalClient() {
 
   async function deactivate() {
     if (!confirm('Desativar a máquina atual? Ela deixará de renovar a licença.')) return;
-    const response = await fetch('/api/portal/machines', { method: 'DELETE' });
+    const response = await fetch(
+      `/api/portal/machines?librarySlug=${encodeURIComponent(portal?.librarySlug || 'steelflow')}`,
+      { method: 'DELETE' },
+    );
     if (!response.ok) {
       const result = await response.json();
       return setError(result.message);
@@ -212,7 +222,7 @@ export function PortalClient() {
 
         <div className="account-grid">
           <article className="account-card">
-            <h2>Sua assinatura</h2>
+            <h2>{portal.libraryName}</h2>
             <p>
               <strong>{portal.planName}</strong>
               <br />
@@ -241,6 +251,7 @@ export function PortalClient() {
 
             {canRetry && (
               <form className="form-stack retry-form" onSubmit={retry}>
+                <input type="hidden" name="librarySlug" value={portal.librarySlug} />
                 <label>
                   CPF ou CNPJ usado no cadastro
                   <input name="taxId" inputMode="numeric" required minLength={11} />
@@ -283,6 +294,7 @@ export function PortalClient() {
 
             {canChangePlan && (
               <form className="inline-form" onSubmit={plan}>
+                <input type="hidden" name="librarySlug" value={portal.librarySlug} />
                 <select name="planCode" defaultValue={portal.planCode}>
                   <option value="monthly">Plano mensal</option>
                   <option value="yearly">Plano anual</option>
@@ -300,7 +312,10 @@ export function PortalClient() {
             </p>
             {portal.canDownload ? (
               <div className="form-stack">
-                <a className="button button-primary" href="/api/installer">
+                <a
+                  className="button button-primary"
+                  href={`/api/libraries/${portal.librarySlug}/installer`}
+                >
                   Baixar instalador único (AutoCAD 2022–2026)
                 </a>
               </div>
@@ -309,7 +324,10 @@ export function PortalClient() {
                 Aguardando pagamento
               </button>
             )}
-            <a className="button button-outline" href="/api/uninstaller">
+            <a
+              className="button button-outline"
+              href={`/api/libraries/${portal.librarySlug}/uninstaller`}
+            >
               Baixar desinstalador
             </a>
           </article>
@@ -320,7 +338,9 @@ export function PortalClient() {
               {portal.subscriptions.map((subscription) => (
                 <div className="subscription-row" key={subscription.id}>
                   <div>
-                    <strong>{subscription.planName}</strong>
+                    <strong>
+                      {subscription.libraryName} · {subscription.planName}
+                    </strong>
                     <small>
                       Criada em {new Date(subscription.createdAt).toLocaleDateString('pt-BR')} ·{' '}
                       {billingLabels[subscription.billingType] || subscription.billingType}
@@ -329,6 +349,22 @@ export function PortalClient() {
                   <span className={`status status-${subscription.status}`}>
                     {labels[subscription.status] || subscription.status}
                   </span>
+                  {subscription.status === 'active' && (
+                    <a
+                      className="text-link"
+                      href={`/api/libraries/${subscription.librarySlug}/installer`}
+                    >
+                      Baixar
+                    </a>
+                  )}
+                  {!['cancelled', 'replaced'].includes(subscription.status) && (
+                    <button
+                      className="danger-link"
+                      onClick={() => void cancel(subscription.librarySlug)}
+                    >
+                      Cancelar
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -348,10 +384,13 @@ export function PortalClient() {
           </article>
         </div>
         {canCancel && (
-          <button className="danger-link" onClick={cancel}>
+          <button className="danger-link" onClick={() => void cancel()}>
             Cancelar assinatura
           </button>
         )}
+        <Link className="button button-outline" href="/bibliotecas">
+          Adicionar outra biblioteca
+        </Link>
       </div>
     </section>
   );

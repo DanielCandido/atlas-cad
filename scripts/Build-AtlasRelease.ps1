@@ -115,7 +115,7 @@ foreach ($variant in $variants) {
     Copy-Item -LiteralPath (Join-Path $repositoryRoot 'cad\legacy-lisp\atlas-bridge.lsp') -Destination $content
     Copy-Item -LiteralPath (Join-Path $repositoryRoot 'installer\windows\atlas-loader.lsp') -Destination $content
     Copy-Item -LiteralPath $compiledFas -Destination $content
-    Copy-Item -LiteralPath $catalog -Destination (Join-Path $content 'steel.atlascatalog')
+    Copy-Item -LiteralPath $catalog -Destination (Join-Path $content 'steelflow.atlascatalog')
 
     $versionBytes = [Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes("AtlasCad:${Version}:$($variant.Slug)"))
     $guidBytes = New-Object byte[] 16
@@ -151,6 +151,8 @@ Compress-Archive -Path (Get-ChildItem -LiteralPath $installerPayloadRoot).FullNa
 $publicDescriptor = Get-Content -LiteralPath $signingPublicKey -Raw | ConvertFrom-Json
 $installerSettings = @{
     licenseApiBaseUrl = $PublicLicenseApiUrl.TrimEnd('/')
+    librarySlug = 'steelflow'
+    productId = 'atlas-steelflow'
     signingKeyId = [string]$publicDescriptor.keyId
     signingKeyX = [string]$publicDescriptor.x
     signingKeyY = [string]$publicDescriptor.y

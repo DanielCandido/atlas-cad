@@ -4,6 +4,7 @@ namespace Atlas.Licensing.Api;
 
 public sealed class RegisterSubscriptionRequest
 {
+    public string LibrarySlug { get; set; } = "steelflow";
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string TaxId { get; set; } = string.Empty;
@@ -23,9 +24,10 @@ public sealed class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
-public sealed class ChangePlanRequest { public string PlanCode { get; set; } = string.Empty; }
+public sealed class ChangePlanRequest { public string LibrarySlug { get; set; } = "steelflow"; public string PlanCode { get; set; } = string.Empty; }
 public sealed class RetrySubscriptionRequest
 {
+    public string LibrarySlug { get; set; } = "steelflow";
     public string TaxId { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string PostalCode { get; set; } = string.Empty;
@@ -33,7 +35,7 @@ public sealed class RetrySubscriptionRequest
     public string AddressNumber { get; set; } = string.Empty;
     public string Province { get; set; } = string.Empty;
 }
-public sealed class RegisterMachineRequest { public string MachineIdentifier { get; set; } = string.Empty; }
+public sealed class RegisterMachineRequest { public string LibrarySlug { get; set; } = "steelflow"; public string MachineIdentifier { get; set; } = string.Empty; }
 public sealed class PairingDecisionRequest { public bool ReplaceExisting { get; set; } }
 
 public sealed class CreateLicenseRequest { public string CustomerReference { get; set; } = string.Empty; }
@@ -51,6 +53,7 @@ public sealed class ActivationSnapshot
     public int Generation { get; set; }
     public string ActivationId { get; set; } = string.Empty;
     public string DeviceKeySha256 { get; set; } = string.Empty;
+    public string ModuleCode { get; set; } = string.Empty;
 }
 public sealed class LicenseServerException : Exception
 {
@@ -65,6 +68,7 @@ public sealed record CheckoutResponse(string SessionToken, DateTimeOffset Expire
 public sealed record MachineActivationResponse(string ActivationCode, DateTimeOffset ExpiresAt, string MachineFingerprint);
 public sealed record PortalPairingSnapshot(
     string UserCode,
+    string LibrarySlug,
     string Status,
     string MachineFingerprint,
     IReadOnlyList<string> DetectedVersions,
@@ -73,6 +77,8 @@ public sealed record PortalPairingSnapshot(
     string? ActiveMachineFingerprint);
 public sealed record SubscriptionSummary(
     Guid Id,
+    string LibrarySlug,
+    string LibraryName,
     string PlanCode,
     string PlanName,
     string Status,
@@ -85,6 +91,8 @@ public sealed record SubscriptionSummary(
 public sealed record PortalSnapshot(
     string CustomerName,
     string Email,
+    string LibrarySlug,
+    string LibraryName,
     string PlanCode,
     string PlanName,
     string SubscriptionStatus,

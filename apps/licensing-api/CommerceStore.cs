@@ -10,6 +10,7 @@ namespace Atlas.Licensing.Api;
 public sealed class CommerceStore(
     NpgsqlDataSource dataSource,
     CommerceOptions options,
+    LibraryStore libraries,
     AsaasClient asaas,
     ILogger<CommerceStore> logger)
 {
@@ -18,39 +19,74 @@ public sealed class CommerceStore(
     public async Task<CheckoutResponse> RegisterAsync(RegisterSubscriptionRequest request, CancellationToken cancellationToken)
     {
         ValidateRegistration(request);
-        if (!options.Plans.TryGetValue(request.PlanCode, out var plan))
+        var library = await libraries.GetPublicAsync(request.LibrarySlug, cancellationToken);
+        var planView = library.Plans.FirstOrDefault(value => value.Code.Equals(request.PlanCode, StringComparison.OrdinalIgnoreCase));
+        if (planView is null)
             throw new LicenseServerException("plan_invalid", "Plano inválido.", 400);
+        var plan = new PlanDefinition(planView.Code, planView.Name, planView.Price, planView.Cycle);
         var billingType = request.BillingType.Trim().ToUpperInvariant();
         var taxId = Digits(request.TaxId);
         if (billingType is not ("PIX" or "BOLETO" or "CREDIT_CARD"))
             throw new LicenseServerException("billing_type_invalid", "Use cartão de crédito, PIX ou boleto.", 400);
         var billing = billingType == "CREDIT_CARD" ? ValidateBillingDetails(request) : null;
 
+        var normalizedEmail = NormalizeEmail(request.Email);
         var customerId = Guid.NewGuid();
+        string? existingAsaasCustomerId = null;
+        var existingCustomer = false;
+        await using (var lookupConnection = await dataSource.OpenConnectionAsync(cancellationToken))
+        await using (var lookup = new NpgsqlCommand("SELECT id,password_hash,asaas_customer_id,tax_id_hash FROM atlas_customers WHERE email=$1", lookupConnection))
+        {
+            lookup.Parameters.AddWithValue(normalizedEmail);
+            await using var existing = await lookup.ExecuteReaderAsync(cancellationToken);
+            if (await existing.ReadAsync(cancellationToken))
+            {
+                if (!PasswordHasher.Verify(request.Password, existing.GetString(1)))
+                    throw new LicenseServerException("credentials_invalid", "E-mail ja cadastrado; informe a senha correta.", 401);
+                var storedTaxId = existing.GetString(3);
+                if (!string.Equals(storedTaxId, HashToken(taxId), StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(storedTaxId, taxId, StringComparison.Ordinal))
+                    throw new LicenseServerException("tax_id_invalid", "O CPF ou CNPJ não corresponde ao cadastro.", 403);
+                customerId = existing.GetGuid(0);
+                existingAsaasCustomerId = existing.IsDBNull(2) ? null : existing.GetString(2);
+                existingCustomer = true;
+            }
+        }
         var subscriptionId = Guid.NewGuid();
         await using (var connection = await dataSource.OpenConnectionAsync(cancellationToken))
         await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
             try
             {
+                if (!existingCustomer)
+                    await ExecuteAsync(connection, transaction,
+                        "INSERT INTO atlas_customers(id,name,email,tax_id_hash,password_hash) VALUES ($1,$2,$3,$4,$5)",
+                        cancellationToken, customerId, request.Name.Trim(), normalizedEmail, HashToken(taxId),
+                        PasswordHasher.Hash(request.Password));
                 await ExecuteAsync(connection, transaction,
-                    "INSERT INTO atlas_customers(id,name,email,tax_id_hash,password_hash) VALUES ($1,$2,$3,$4,$5)",
-                    cancellationToken, customerId, request.Name.Trim(), NormalizeEmail(request.Email), HashToken(taxId),
-                    PasswordHasher.Hash(request.Password));
-                await ExecuteAsync(connection, transaction,
-                    "INSERT INTO atlas_subscriptions(id,customer_id,plan_code,status,billing_type) VALUES ($1,$2,$3,'provisioning',$4)",
-                    cancellationToken, subscriptionId, customerId, plan.Code, billingType);
+                    "INSERT INTO atlas_subscriptions(id,customer_id,library_id,plan_code,status,billing_type) VALUES ($1,$2,$3,$4,'provisioning',$5)",
+                    cancellationToken, subscriptionId, customerId, library.Id, plan.Code, billingType);
                 await transaction.CommitAsync(cancellationToken);
             }
             catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
-            { throw new LicenseServerException("email_in_use", "Já existe uma conta com este e-mail.", 409); }
+            {
+                throw existingCustomer
+                    ? new LicenseServerException("library_already_subscribed", "Esta biblioteca já possui uma assinatura ativa nesta conta.", 409)
+                    : new LicenseServerException("email_in_use", "Já existe uma conta com este e-mail.", 409);
+            }
         }
 
         try
         {
-            var asaasCustomerId = await asaas.CreateCustomerAsync(
-                customerId, request.Name, request.Email, taxId, billing, cancellationToken);
-            await SaveAsaasCustomerAsync(customerId, asaasCustomerId, cancellationToken);
+            var asaasCustomerId = existingAsaasCustomerId;
+            if (asaasCustomerId is null)
+            {
+                asaasCustomerId = await asaas.CreateCustomerAsync(
+                    customerId, request.Name, request.Email, taxId, billing, cancellationToken);
+                await SaveAsaasCustomerAsync(customerId, asaasCustomerId, cancellationToken);
+            }
+            else if (billing is not null)
+                await asaas.UpdateCustomerBillingAsync(asaasCustomerId, billing, cancellationToken);
             if (billingType == "CREDIT_CARD")
             {
                 var checkout = await asaas.CreateRecurringCheckoutAsync(
@@ -133,12 +169,14 @@ public sealed class CommerceStore(
             await expire.ExecuteNonQueryAsync(cancellationToken);
         }
         await using var command = new NpgsqlCommand("""
-            SELECT c.name,c.email,s.id,s.plan_code,s.status,s.billing_type,s.paid_through,s.payment_url,l.id,a.device_fingerprint,
-                   l.revoked_at,l.manual_valid_until
+            SELECT c.name,c.email,s.id,s.plan_code,s.status,s.billing_type,s.paid_through,s.payment_url,x.id,a.device_fingerprint,
+                   x.revoked_at,x.manual_valid_until,lib.slug,lib.name,COALESCE(p.name,s.plan_code)
             FROM atlas_customers c
             JOIN atlas_subscriptions s ON s.customer_id=c.id
-            LEFT JOIN atlas_licenses l ON l.subscription_id=s.id
-            LEFT JOIN atlas_activations a ON a.license_id=l.id AND a.revoked_at IS NULL AND a.generation=l.generation
+            JOIN atlas_libraries lib ON lib.id=s.library_id
+            LEFT JOIN atlas_library_plans p ON p.library_id=lib.id AND p.code=s.plan_code
+            LEFT JOIN atlas_licenses x ON x.subscription_id=s.id
+            LEFT JOIN atlas_activations a ON a.license_id=x.id AND a.revoked_at IS NULL AND a.generation=x.generation
             WHERE c.id=$1 ORDER BY s.created_at DESC LIMIT 1
             """, connection);
         command.Parameters.AddWithValue(customerId);
@@ -156,38 +194,45 @@ public sealed class CommerceStore(
         var machineFingerprint = reader.IsDBNull(9) ? null : reader.GetString(9);
         var licenseRevoked = !reader.IsDBNull(10);
         DateTimeOffset? manualValidUntil = reader.IsDBNull(11) ? null : reader.GetFieldValue<DateTimeOffset>(11);
+        var librarySlug = reader.GetString(12);
+        var libraryName = reader.GetString(13);
+        var planName = reader.GetString(14);
         await reader.DisposeAsync();
 
         var subscriptions = new List<SubscriptionSummary>();
         await using var history = new NpgsqlCommand("""
-            SELECT id,plan_code,status,billing_type,paid_through,payment_url,created_at
-            FROM atlas_subscriptions WHERE customer_id=$1 ORDER BY created_at DESC
+            SELECT s.id,lib.slug,lib.name,s.plan_code,COALESCE(p.name,s.plan_code),s.status,s.billing_type,s.paid_through,s.payment_url,s.created_at
+            FROM atlas_subscriptions s JOIN atlas_libraries lib ON lib.id=s.library_id
+            LEFT JOIN atlas_library_plans p ON p.library_id=lib.id AND p.code=s.plan_code
+            WHERE s.customer_id=$1 ORDER BY s.created_at DESC
             """, connection);
         history.Parameters.AddWithValue(customerId);
         await using var historyReader = await history.ExecuteReaderAsync(cancellationToken);
         while (await historyReader.ReadAsync(cancellationToken))
         {
             var historyId = historyReader.GetGuid(0);
-            var historyPlanCode = historyReader.GetString(1);
-            var historyStatus = historyReader.GetString(2);
-            var historyPaymentUrl = historyReader.IsDBNull(5) ? null : historyReader.GetString(5);
+            var historyPlanCode = historyReader.GetString(3);
+            var historyStatus = historyReader.GetString(5);
+            var historyPaymentUrl = historyReader.IsDBNull(8) ? null : historyReader.GetString(8);
             subscriptions.Add(new SubscriptionSummary(
                 historyId,
+                historyReader.GetString(1),
+                historyReader.GetString(2),
                 historyPlanCode,
-                options.Plans.TryGetValue(historyPlanCode, out var historyPlan) ? historyPlan.Name : historyPlanCode,
+                historyReader.GetString(4),
                 historyStatus,
-                historyReader.GetString(3),
-                historyReader.IsDBNull(4) ? null : historyReader.GetFieldValue<DateTimeOffset>(4),
+                historyReader.GetString(6),
+                historyReader.IsDBNull(7) ? null : historyReader.GetFieldValue<DateTimeOffset>(7),
                 historyPaymentUrl,
-                historyReader.GetFieldValue<DateTimeOffset>(6),
+                historyReader.GetFieldValue<DateTimeOffset>(9),
                 historyId == currentSubscriptionId,
                 historyStatus is "provisioning_failed" or "checkout_cancelled" or "checkout_expired" ||
                     (historyStatus is "pending_payment" or "past_due" && historyPaymentUrl == null)));
         }
 
         var entitled = !licenseRevoked && ((status == "active" && paidThrough > DateTimeOffset.UtcNow) || manualValidUntil > DateTimeOffset.UtcNow);
-        return new PortalSnapshot(customerName, email, planCode,
-            options.Plans.TryGetValue(planCode, out var plan) ? plan.Name : planCode,
+        return new PortalSnapshot(customerName, email, librarySlug, libraryName, planCode,
+            planName,
             status, billingType, paidThrough, entitled, entitled, paymentUrl, licenseId,
             machineFingerprint, subscriptions);
     }
@@ -204,13 +249,15 @@ public sealed class CommerceStore(
         await using (var command = new NpgsqlCommand("""
             SELECT c.name,c.email,c.tax_id_hash,c.asaas_customer_id,
                    s.id,s.plan_code,s.status,s.billing_type,s.asaas_subscription_id,
-                   s.asaas_checkout_id,s.checkout_status
+                   s.asaas_checkout_id,s.checkout_status,lib.slug
             FROM atlas_customers c
             JOIN atlas_subscriptions s ON s.customer_id=c.id AND s.status NOT IN ('cancelled','replaced')
-            WHERE c.id=$1 ORDER BY s.created_at DESC LIMIT 1
+            JOIN atlas_libraries lib ON lib.id=s.library_id
+            WHERE c.id=$1 AND lib.slug=$2 ORDER BY s.created_at DESC LIMIT 1
             """, connection))
         {
             command.Parameters.AddWithValue(customerId);
+            command.Parameters.AddWithValue(request.LibrarySlug);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken))
                 throw new LicenseServerException("subscription_not_found", "Assinatura não encontrada.", 404);
@@ -225,7 +272,8 @@ public sealed class CommerceStore(
                 reader.GetString(7),
                 reader.IsDBNull(8) ? null : reader.GetString(8),
                 reader.IsDBNull(9) ? null : reader.GetString(9),
-                reader.IsDBNull(10) ? null : reader.GetString(10));
+                reader.IsDBNull(10) ? null : reader.GetString(10),
+                reader.GetString(11));
         }
 
         var expectedTaxIdHash = HashToken(taxId);
@@ -233,8 +281,11 @@ public sealed class CommerceStore(
             string.Equals(row.TaxIdHash, taxId, StringComparison.Ordinal);
         if (!taxIdMatches)
             throw new LicenseServerException("tax_id_invalid", "O CPF ou CNPJ não corresponde ao cadastro.", 403);
-        if (!options.Plans.TryGetValue(row.PlanCode, out var plan))
+        var retryLibrary = await libraries.GetPublicAsync(row.LibrarySlug, cancellationToken);
+        var retryPlan = retryLibrary.Plans.FirstOrDefault(value => value.Code == row.PlanCode);
+        if (retryPlan is null)
             throw new LicenseServerException("plan_invalid", "Plano inválido.", 400);
+        var plan = new PlanDefinition(retryPlan.Code, retryPlan.Name, retryPlan.Price, retryPlan.Cycle);
         if (row.Status is "active" or "suspended" or "cancelled" or "replaced")
             throw new LicenseServerException("subscription_retry_not_allowed", "Esta assinatura não pode ser reprovisionada.", 409);
         var billing = row.BillingType == "CREDIT_CARD" ? ValidateBillingDetails(request) : null;
@@ -291,10 +342,13 @@ public sealed class CommerceStore(
         }
     }
 
-    public async Task<PortalSnapshot> ChangePlanAsync(Guid customerId, string planCode, CancellationToken cancellationToken)
+    public async Task<PortalSnapshot> ChangePlanAsync(Guid customerId, string librarySlug, string planCode, CancellationToken cancellationToken)
     {
-        if (!options.Plans.TryGetValue(planCode, out var plan)) throw new LicenseServerException("plan_invalid", "Plano inválido.", 400);
-        var subscription = await GetSubscriptionAsync(customerId, cancellationToken);
+        var library = await libraries.GetPublicAsync(librarySlug, cancellationToken);
+        var selected = library.Plans.FirstOrDefault(value => value.Code.Equals(planCode, StringComparison.OrdinalIgnoreCase));
+        if (selected is null) throw new LicenseServerException("plan_invalid", "Plano inválido.", 400);
+        var plan = new PlanDefinition(selected.Code, selected.Name, selected.Price, selected.Cycle);
+        var subscription = await GetSubscriptionAsync(customerId, librarySlug, cancellationToken);
         if (subscription.AsaasId == null) throw new LicenseServerException("subscription_not_ready", "Assinatura ainda não foi provisionada.", 409);
         await asaas.UpdateSubscriptionAsync(subscription.AsaasId, plan, cancellationToken);
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
@@ -304,9 +358,9 @@ public sealed class CommerceStore(
         return await GetPortalAsync(customerId, cancellationToken);
     }
 
-    public async Task CancelAsync(Guid customerId, CancellationToken cancellationToken)
+    public async Task CancelAsync(Guid customerId, string librarySlug, CancellationToken cancellationToken)
     {
-        var subscription = await GetSubscriptionAsync(customerId, cancellationToken);
+        var subscription = await GetSubscriptionAsync(customerId, librarySlug, cancellationToken);
         if (subscription.AsaasId != null)
             await asaas.CancelSubscriptionAsync(subscription.AsaasId, cancellationToken);
         else if (subscription.CheckoutId != null && subscription.CheckoutStatus == "ACTIVE")
@@ -323,7 +377,7 @@ public sealed class CommerceStore(
         await transaction.CommitAsync(cancellationToken);
     }
 
-    public async Task<MachineActivationResponse> RegisterMachineAsync(Guid customerId, string identifier, CancellationToken cancellationToken)
+    public async Task<MachineActivationResponse> RegisterMachineAsync(Guid customerId, string librarySlug, string identifier, CancellationToken cancellationToken)
     {
         var machine = ParseAndVerifyMachine(identifier);
         var fingerprint = LicenseCrypto.DeviceFingerprint(LicenseCrypto.PublicParameters(machine.X, machine.Y));
@@ -332,11 +386,13 @@ public sealed class CommerceStore(
         await using var command = new NpgsqlCommand("""
             SELECT l.id,l.generation
             FROM atlas_licenses l JOIN atlas_subscriptions s ON s.id=l.subscription_id
-            WHERE s.customer_id=$1 AND l.revoked_at IS NULL
+            JOIN atlas_libraries lib ON lib.id=s.library_id
+            WHERE s.customer_id=$1 AND lib.slug=$2 AND l.revoked_at IS NULL
               AND ((s.status='active' AND s.paid_through>now()) OR l.manual_valid_until>now())
             ORDER BY s.created_at DESC LIMIT 1 FOR UPDATE OF l
             """, connection, transaction);
         command.Parameters.AddWithValue(customerId);
+        command.Parameters.AddWithValue(librarySlug);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) throw new LicenseServerException("subscription_inactive", "O pagamento precisa estar confirmado antes da ativação.", 403);
         var licenseId = reader.GetString(0); var generation = reader.GetInt32(1);
@@ -357,15 +413,17 @@ public sealed class CommerceStore(
         return new MachineActivationResponse(code, DateTimeOffset.UtcNow.AddDays(7), fingerprint);
     }
 
-    public async Task DeactivateMachineAsync(Guid customerId, CancellationToken cancellationToken)
+    public async Task DeactivateMachineAsync(Guid customerId, string librarySlug, CancellationToken cancellationToken)
     {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
             SELECT l.id FROM atlas_licenses l JOIN atlas_subscriptions s ON s.id=l.subscription_id
-            WHERE s.customer_id=$1 AND s.status NOT IN ('cancelled','replaced') ORDER BY s.created_at DESC LIMIT 1 FOR UPDATE OF l
+            JOIN atlas_libraries lib ON lib.id=s.library_id
+            WHERE s.customer_id=$1 AND lib.slug=$2 AND s.status NOT IN ('cancelled','replaced') ORDER BY s.created_at DESC LIMIT 1 FOR UPDATE OF l
             """, connection, transaction);
         command.Parameters.AddWithValue(customerId);
+        command.Parameters.AddWithValue(librarySlug);
         var licenseId = await command.ExecuteScalarAsync(cancellationToken) as string ??
             throw new LicenseServerException("license_not_found", "Licença não encontrada.", 404);
         await ExecuteAsync(connection, transaction, "UPDATE atlas_activations SET revoked_at=now() WHERE license_id=$1 AND revoked_at IS NULL", cancellationToken, licenseId);
@@ -452,12 +510,14 @@ public sealed class CommerceStore(
             }
             else if (!string.IsNullOrWhiteSpace(asaasSubscriptionId) && webhook.Event is "PAYMENT_CONFIRMED" or "PAYMENT_RECEIVED")
             {
-                await using var lookup = new NpgsqlCommand("SELECT id,customer_id,plan_code FROM atlas_subscriptions WHERE asaas_subscription_id=$1 AND status NOT IN ('cancelled','replaced') FOR UPDATE", connection, transaction);
+                await using var lookup = new NpgsqlCommand("SELECT s.id,s.customer_id,p.cycle,l.product_id FROM atlas_subscriptions s JOIN atlas_libraries l ON l.id=s.library_id LEFT JOIN atlas_library_plans p ON p.library_id=s.library_id AND p.code=s.plan_code WHERE s.asaas_subscription_id=$1 AND s.status NOT IN ('cancelled','replaced') FOR UPDATE OF s", connection, transaction);
                 lookup.Parameters.AddWithValue(asaasSubscriptionId);
                 await using var reader = await lookup.ExecuteReaderAsync(cancellationToken);
                 if (await reader.ReadAsync(cancellationToken))
                 {
-                    var subscriptionId = reader.GetGuid(0); var customerId = reader.GetGuid(1); var planCode = reader.GetString(2);
+                    var subscriptionId = reader.GetGuid(0); var customerId = reader.GetGuid(1);
+                    var cycle = reader.IsDBNull(2) ? "MONTHLY" : reader.GetString(2);
+                    var productId = reader.GetString(3);
                     await reader.DisposeAsync();
                     var paymentId = webhook.Payment?.Id;
                     if (string.IsNullOrWhiteSpace(paymentId)) throw new LicenseServerException("webhook_invalid", "Webhook de pagamento sem identificador.", 400);
@@ -465,13 +525,13 @@ public sealed class CommerceStore(
                     paid.Parameters.AddWithValue(paymentId); paid.Parameters.AddWithValue(subscriptionId);
                     if (await paid.ExecuteNonQueryAsync(cancellationToken) > 0)
                     {
-                        var period = options.Plans.TryGetValue(planCode, out var plan) && plan.Cycle == "YEARLY" ? "1 year" : "1 month";
+                        var period = cycle == "YEARLY" ? "1 year" : "1 month";
                         await ExecuteAsync(connection, transaction, $"UPDATE atlas_subscriptions SET status='active',paid_through=GREATEST(COALESCE(paid_through,now()),now())+interval '{period}',asaas_payment_id=$1,payment_url=COALESCE(NULLIF($2,''),payment_url),updated_at=now() WHERE id=$3",
                             cancellationToken, paymentId, webhook.Payment?.InvoiceUrl ?? string.Empty, subscriptionId);
                         await ExecuteAsync(connection, transaction, """
                             INSERT INTO atlas_licenses(id,subscription_id,product_id,customer_reference,generation)
                             VALUES ($1,$2,$3,$4,1) ON CONFLICT (subscription_id) DO NOTHING
-                            """, cancellationToken, "lic_" + Guid.NewGuid().ToString("N"), subscriptionId, LicensingProtocol.ProductId, customerId.ToString("N"));
+                            """, cancellationToken, "lic_" + Guid.NewGuid().ToString("N"), subscriptionId, productId, customerId.ToString("N"));
                     }
                 }
             }
@@ -604,11 +664,12 @@ public sealed class CommerceStore(
         return (token, expires);
     }
 
-    private async Task<SubscriptionRow> GetSubscriptionAsync(Guid customerId, CancellationToken cancellationToken)
+    private async Task<SubscriptionRow> GetSubscriptionAsync(Guid customerId, string librarySlug, CancellationToken cancellationToken)
     {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
-        await using var command = new NpgsqlCommand("SELECT id,asaas_subscription_id,asaas_checkout_id,checkout_status FROM atlas_subscriptions WHERE customer_id=$1 AND status NOT IN ('cancelled','replaced') ORDER BY created_at DESC LIMIT 1", connection);
+        await using var command = new NpgsqlCommand("SELECT s.id,s.asaas_subscription_id,s.asaas_checkout_id,s.checkout_status FROM atlas_subscriptions s JOIN atlas_libraries l ON l.id=s.library_id WHERE s.customer_id=$1 AND l.slug=$2 AND s.status NOT IN ('cancelled','replaced') ORDER BY s.created_at DESC LIMIT 1", connection);
         command.Parameters.AddWithValue(customerId);
+        command.Parameters.AddWithValue(librarySlug);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) throw new LicenseServerException("subscription_not_found", "Assinatura não encontrada.", 404);
         return new SubscriptionRow(
@@ -771,5 +832,6 @@ public sealed class CommerceStore(
         string BillingType,
         string? AsaasSubscriptionId,
         string? AsaasCheckoutId,
-        string? CheckoutStatus);
+        string? CheckoutStatus,
+        string LibrarySlug);
 }

@@ -43,7 +43,18 @@ public sealed class SigningKeyProvider : IDisposable
             DeviceKeySha256 = activation.DeviceKeySha256,
             IssuedAtUnix = now,
             ExpiresAtUnix = now + LicensingProtocol.OfflineHours * 60L * 60L,
-            Modules = new List<string> { "mline" }
+            Modules = new List<string>
+            {
+                !string.IsNullOrWhiteSpace(activation.ModuleCode)
+                    ? activation.ModuleCode
+                    : activation.ProductId == LicensingProtocol.LegacyProductId
+                    ? LicensingProtocol.LegacyModuleCode
+                    : activation.ProductId == LicensingProtocol.ProductId
+                        ? LicensingProtocol.ModuleCode
+                        : activation.ProductId.StartsWith("atlas-", StringComparison.Ordinal)
+                            ? activation.ProductId[6..]
+                            : activation.ProductId
+            }
         };
         return new EntitlementResponse
         {

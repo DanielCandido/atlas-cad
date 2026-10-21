@@ -47,7 +47,7 @@ if ($netEntry.Count -ne 1) { throw 'Manifest must contain exactly one .NET adapt
 $adapterRelative = [string]$netEntry[0].ModuleName
 $adapter = [IO.Path]::GetFullPath((Join-Path $bundle $adapterRelative.Substring(2)))
 $content = Split-Path -Parent $adapter
-$catalog = Join-Path $content 'steel.atlascatalog'
+$catalog = Join-Path $content 'steelflow.atlascatalog'
 if (-not (Test-Path (Join-Path $content 'STEELFLOW.fas'))) { throw 'Compiled STEELFLOW.fas is missing.' }
 if (-not (Test-Path $adapter) -or -not (Test-Path $catalog)) { throw 'Adapter or encrypted catalog is missing.' }
 $catalogText = [Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes($catalog))

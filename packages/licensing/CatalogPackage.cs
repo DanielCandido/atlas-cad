@@ -35,6 +35,8 @@ public sealed class CatalogKeyEntry
 
 public static class CatalogPackage
 {
+    public const string CatalogId = "steelflow";
+    public const string LegacyCatalogId = "steel-mlines";
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("ATLCAT01");
     private const int TagBytes = 16;
     private const int NonceBytes = 12;
@@ -55,7 +57,7 @@ public static class CatalogPackage
         {
             PackageVersion = LicensingProtocol.CatalogPackageVersion,
             ProductId = LicensingProtocol.ProductId,
-            CatalogId = "steel-mlines",
+            CatalogId = CatalogId,
             CatalogVersion = catalogVersion,
             KeyId = keyId,
             Algorithm = LicensingProtocol.CatalogAlgorithm,
@@ -131,8 +133,10 @@ public static class CatalogPackage
     private static void ValidateHeader(CatalogPackageHeader header)
     {
         if (header.PackageVersion != LicensingProtocol.CatalogPackageVersion ||
-            !string.Equals(header.ProductId, LicensingProtocol.ProductId, StringComparison.Ordinal) ||
-            !string.Equals(header.CatalogId, "steel-mlines", StringComparison.Ordinal) ||
+            !(string.Equals(header.ProductId, LicensingProtocol.ProductId, StringComparison.Ordinal) ||
+              string.Equals(header.ProductId, LicensingProtocol.LegacyProductId, StringComparison.Ordinal)) ||
+            !(string.Equals(header.CatalogId, CatalogId, StringComparison.Ordinal) ||
+              string.Equals(header.CatalogId, LegacyCatalogId, StringComparison.Ordinal)) ||
             !string.Equals(header.Algorithm, LicensingProtocol.CatalogAlgorithm, StringComparison.Ordinal) ||
             header.CatalogVersion <= 0 || !IsIdentifier(header.KeyId) || header.CreatedAtUnix <= 0 ||
             LicenseCrypto.Base64UrlDecode(header.Nonce).Length != NonceBytes ||

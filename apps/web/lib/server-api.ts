@@ -18,7 +18,8 @@ export async function apiRequest(
 ) {
   const headers = new Headers(init.headers);
   headers.set('accept', 'application/json');
-  if (init.body) headers.set('content-type', 'application/json');
+  if (init.body && !(init.body instanceof FormData))
+    headers.set('content-type', 'application/json');
   const cloudflareIp = incoming?.headers.get('cf-connecting-ip');
   if (cloudflareIp) headers.set('cf-connecting-ip', cloudflareIp);
   if (authenticated) {
@@ -59,7 +60,8 @@ export async function clearSession() {
 export async function adminApiRequest(path: string, init: RequestInit = {}, incoming?: Request) {
   const headers = new Headers(init.headers);
   headers.set('accept', 'application/json');
-  if (init.body) headers.set('content-type', 'application/json');
+  if (init.body && !(init.body instanceof FormData))
+    headers.set('content-type', 'application/json');
   const cloudflareIp = incoming?.headers.get('cf-connecting-ip');
   if (cloudflareIp) headers.set('cf-connecting-ip', cloudflareIp);
   const token = (await cookies()).get(ADMIN_SESSION_COOKIE)?.value;

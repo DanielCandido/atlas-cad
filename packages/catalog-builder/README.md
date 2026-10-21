@@ -5,7 +5,7 @@ overrides and writes a validated private JSON intermediate:
 
 ```powershell
 dotnet run --project packages/catalog-builder -- `
-  C:\private\mlines `
+  C:\private\steelflow `
   C:\private\steel.atlascatalog.json `
   --overrides C:\private\catalog-overrides.json
 ```

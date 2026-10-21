@@ -49,7 +49,8 @@ internal static class BundleInstaller
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Autodesk", "ApplicationPlugins");
         foreach (var item in installations)
         {
-            var catalog = Directory.EnumerateFiles(Path.Combine(root, item.BundleName), "steel.atlascatalog", SearchOption.AllDirectories).FirstOrDefault();
+            var catalog = Directory.EnumerateFiles(Path.Combine(root, item.BundleName), "steelflow.atlascatalog", SearchOption.AllDirectories).FirstOrDefault()
+                ?? Directory.EnumerateFiles(Path.Combine(root, item.BundleName), "steel.atlascatalog", SearchOption.AllDirectories).FirstOrDefault();
             if (catalog != null) return catalog;
         }
         throw new FileNotFoundException("Catálogo protegido não encontrado após a instalação.");

@@ -27,9 +27,11 @@ services:
       ATLAS_CATALOG_KEYS_PATH: /run/atlas-secrets/catalog-keys.json
       ATLAS_INSTALLER_PATH: /downloads/Instalador-AtlasCad.exe
       ATLAS_UNINSTALLER_PATH: /downloads/Desinstalar-AtlasCad.exe
+      ATLAS_LIBRARY_STORAGE_PATH: /library-storage
     volumes:
       - ./secrets:/run/atlas-secrets:ro
       - ./artifacts:/downloads:ro
+      - library_storage:/library-storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,5 +61,6 @@ services:
 
 volumes:
   postgres_data:
+  library_storage:
   caddy_data:
   caddy_config:

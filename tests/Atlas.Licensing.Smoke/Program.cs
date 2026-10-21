@@ -9,6 +9,11 @@ var claims = Claims(now, LicenseCrypto.DeviceFingerprint(device.ExportParameters
 var token = LicenseCrypto.IssueEntitlement(claims, server);
 
 Assert("valid", LicenseCrypto.ValidateEntitlement(token, server, LicensingProtocol.ProductId, claims.DeviceKeySha256, now).Success);
+var legacyClaims = Claims(now, claims.DeviceKeySha256);
+legacyClaims.ProductId = LicensingProtocol.LegacyProductId;
+legacyClaims.Modules = new List<string> { LicensingProtocol.LegacyModuleCode };
+var legacyToken = LicenseCrypto.IssueEntitlement(legacyClaims, server);
+Assert("legacy-steelflow-alias", LicenseCrypto.ValidateEntitlement(legacyToken, server, LicensingProtocol.ProductId, claims.DeviceKeySha256, now).Success);
 Assert("tampered", !LicenseCrypto.ValidateEntitlement(token + "x", server, LicensingProtocol.ProductId, claims.DeviceKeySha256, now).Success);
 Assert("copied-device", !LicenseCrypto.ValidateEntitlement(token, server, LicensingProtocol.ProductId,
     LicenseCrypto.DeviceFingerprint(otherDevice.ExportParameters(false)), now).Success);
@@ -37,14 +42,15 @@ var pairing = new InstallerPairingCreateRequest
     DevicePublicKeyX = LicenseCrypto.Base64UrlEncode(device.ExportParameters(false).Q.X!),
     DevicePublicKeyY = LicenseCrypto.Base64UrlEncode(device.ExportParameters(false).Q.Y!),
     Nonce = LicenseCrypto.Base64UrlEncode(RandomNumberGenerator.GetBytes(24)),
-    DetectedVersions = new List<string> { "AutoCAD 2026" }
+    DetectedVersions = new List<string> { "AutoCAD 2026" },
+    LibrarySlug = "steelflow"
 };
 pairing.Proof = LicenseCrypto.Base64UrlEncode(device.SignData(LicenseCrypto.InstallerPairingCreateProofBytes(pairing), HashAlgorithmName.SHA256));
 Assert("pairing-proof", device.VerifyData(LicenseCrypto.InstallerPairingCreateProofBytes(pairing), LicenseCrypto.Base64UrlDecode(pairing.Proof), HashAlgorithmName.SHA256));
 var poll = new InstallerPairingProofRequest { ProtocolVersion = 1, Nonce = LicenseCrypto.Base64UrlEncode(RandomNumberGenerator.GetBytes(24)) };
 poll.Proof = LicenseCrypto.Base64UrlEncode(device.SignData(LicenseCrypto.InstallerPairingProofBytes("poll", "pair_test", poll), HashAlgorithmName.SHA256));
 Assert("pairing-operation-bound", !device.VerifyData(LicenseCrypto.InstallerPairingProofBytes("complete", "pair_test", poll), LicenseCrypto.Base64UrlDecode(poll.Proof), HashAlgorithmName.SHA256));
-Console.WriteLine("Atlas licensing/catalog smoke: 12/12 passed.");
+Console.WriteLine("Atlas licensing/catalog smoke: 13/13 passed.");
 return;
 
 static EntitlementClaims Claims(long now, string fingerprint) => new()
@@ -59,7 +65,7 @@ static EntitlementClaims Claims(long now, string fingerprint) => new()
     DeviceKeySha256 = fingerprint,
     IssuedAtUnix = now,
     ExpiresAtUnix = now + 3600,
-    Modules = new List<string> { "mline" }
+    Modules = new List<string> { LicensingProtocol.ModuleCode }
 };
 
 static void Assert(string name, bool condition)

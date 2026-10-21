@@ -26,7 +26,8 @@ internal sealed class DeviceLicenseInstaller : IDisposable
             DevicePublicKeyX = LicenseCrypto.Base64UrlEncode(parameters.Q.X!),
             DevicePublicKeyY = LicenseCrypto.Base64UrlEncode(parameters.Q.Y!),
             Nonce = NewNonce(),
-            DetectedVersions = versions.ToList()
+            DetectedVersions = versions.ToList(),
+            LibrarySlug = settings.LibrarySlug
         };
         request.Proof = Sign(LicenseCrypto.InstallerPairingCreateProofBytes(request));
         return await api.CreatePairingAsync(request, cancellationToken);
@@ -45,7 +46,7 @@ internal sealed class DeviceLicenseInstaller : IDisposable
         if (string.IsNullOrWhiteSpace(settings.SigningKeyX) || string.IsNullOrWhiteSpace(settings.SigningKeyY))
             throw new InstallerException("installer_trust_missing", "O instalador não contém a chave pública de produção.");
         using var serverKey = ECDsa.Create(LicenseCrypto.PublicParameters(settings.SigningKeyX, settings.SigningKeyY));
-        var validation = LicenseCrypto.ValidateEntitlement(response.EntitlementToken, serverKey, LicensingProtocol.ProductId,
+        var validation = LicenseCrypto.ValidateEntitlement(response.EntitlementToken, serverKey, settings.ProductId,
             fingerprint, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         if (!validation.Success || validation.Claims == null || validation.Claims.KeyId != settings.SigningKeyId)
             throw new InstallerException(validation.ErrorCode, "A licença retornada pelo servidor é inválida.");
@@ -116,7 +117,7 @@ internal sealed class DeviceLicenseInstaller : IDisposable
     {
         var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AtlasCad", "catalog", "v2");
         SecureDirectory.Create(directory);
-        var target = Path.Combine(directory, "steel.atlascatalog");
+        var target = Path.Combine(directory, "steelflow.atlascatalog");
         var temporary = target + ".tmp";
         File.Copy(source, temporary, true);
         File.Move(temporary, target, true);

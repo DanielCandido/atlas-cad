@@ -58,6 +58,9 @@ export function AdminUsersClient() {
             <h1 className="admin-title">Usuários e licenças</h1>
             <p>Consulte acesso, vencimentos e dispositivos em um só lugar.</p>
           </div>
+          <Link className="button button-outline" href="/admin/bibliotecas">
+            Bibliotecas
+          </Link>
           <button className="button button-outline" onClick={logout}>
             Sair
           </button>

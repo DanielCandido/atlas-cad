@@ -25,7 +25,7 @@ public sealed record AdminUserSummary(
     string? LicenseId, string AccessStatus, DateTimeOffset? AccessExpiresAt,
     string? AccessSource, string? DeviceFingerprint, DateTimeOffset? DeviceLastRenewedAt);
 public sealed record AdminSubscriptionSummary(
-    Guid Id, string PlanCode, string PlanName, string Status, string BillingType,
+    Guid Id, string LibrarySlug, string LibraryName, string PlanCode, string PlanName, string Status, string BillingType,
     DateTimeOffset? PaidThrough, DateTimeOffset CreatedAt, bool IsCurrent);
 public sealed record AdminLicenseSummary(
     string Id, int Generation, DateTimeOffset CreatedAt, DateTimeOffset? RevokedAt,

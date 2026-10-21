@@ -16,6 +16,8 @@ export type AdminUser = {
 export type AdminUserList = { items: AdminUser[]; nextCursor?: string };
 export type AdminSubscription = {
   id: string;
+  librarySlug: string;
+  libraryName: string;
   planCode: string;
   planName: string;
   status: string;

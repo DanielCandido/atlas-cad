@@ -159,18 +159,17 @@ public sealed class AdminStore(NpgsqlDataSource dataSource, CommerceOptions opti
             id = reader.GetGuid(0); name = reader.GetString(1); email = reader.GetString(2); created = reader.GetFieldValue<DateTimeOffset>(3);
         }
         var subscriptions = new List<AdminSubscriptionSummary>();
-        await using (var command = new NpgsqlCommand("SELECT id,plan_code,status,billing_type,paid_through,created_at FROM atlas_subscriptions WHERE customer_id=$1 ORDER BY created_at DESC", connection))
+        await using (var command = new NpgsqlCommand("SELECT s.id,l.slug,l.name,s.plan_code,COALESCE(p.name,s.plan_code),s.status,s.billing_type,s.paid_through,s.created_at FROM atlas_subscriptions s JOIN atlas_libraries l ON l.id=s.library_id LEFT JOIN atlas_library_plans p ON p.library_id=l.id AND p.code=s.plan_code WHERE s.customer_id=$1 ORDER BY s.created_at DESC", connection))
         {
             command.Parameters.AddWithValue(customerId);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             var first = true;
             while (await reader.ReadAsync(cancellationToken))
             {
-                var code = reader.GetString(1);
-                subscriptions.Add(new AdminSubscriptionSummary(reader.GetGuid(0), code,
-                    options.Plans.TryGetValue(code, out var definition) ? definition.Name : code,
-                    reader.GetString(2), reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetFieldValue<DateTimeOffset>(4),
-                    reader.GetFieldValue<DateTimeOffset>(5), first));
+                var code = reader.GetString(3);
+                subscriptions.Add(new AdminSubscriptionSummary(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), code,
+                    reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetFieldValue<DateTimeOffset>(7),
+                    reader.GetFieldValue<DateTimeOffset>(8), first));
                 first = false;
             }
         }
@@ -257,13 +256,13 @@ public sealed class AdminStore(NpgsqlDataSource dataSource, CommerceOptions opti
         await transaction.CommitAsync(ct);
     }
 
-    public async Task CancelSubscriptionAsync(AdminPrincipal admin, Guid customerId, AdminReasonRequest request, string? ip, CancellationToken ct)
+    public async Task CancelSubscriptionAsync(AdminPrincipal admin, Guid customerId, string librarySlug, AdminReasonRequest request, string? ip, CancellationToken ct)
     {
         var reason = ValidateReason(request.Reason);
         var before = await ReadCustomerStateAsync(customerId, ct);
         try
         {
-            await commerce.CancelAsync(customerId, ct);
+            await commerce.CancelAsync(customerId, librarySlug, ct);
             var after = await ReadCustomerStateAsync(customerId, ct);
             await WriteAuditAsync(admin, "subscription_cancelled", "customer", customerId.ToString(), reason, "succeeded", ip, ct, before, after);
         }

@@ -35,6 +35,8 @@ licensing-state.json
 
 # Material privado fornecido para análise. Nunca versionar nem empacotar.
 /docs/knowledge/
+/infra/library-storage/
+/apps/licensing-api/App_Data/libraries/
 /fixtures/private/
 /tests/autocad/baseline/private/
 /infra/secrets/

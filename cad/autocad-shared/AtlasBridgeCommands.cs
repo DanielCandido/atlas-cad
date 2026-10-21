@@ -188,7 +188,8 @@ public sealed class AtlasBridgeCommands
     {
         var editor = AcApplication.DocumentManager.MdiActiveDocument.Editor;
         var assemblyDirectory = Path.GetDirectoryName(typeof(AtlasBridgeCommands).Assembly.Location) ?? string.Empty;
-        var sourcePath = Path.Combine(assemblyDirectory, "steel.atlascatalog");
+        var sourcePath = Path.Combine(assemblyDirectory, "steelflow.atlascatalog");
+        if (!File.Exists(sourcePath)) sourcePath = Path.Combine(assemblyDirectory, "steel.atlascatalog");
         if (!File.Exists(sourcePath))
         {
             var prompt = editor.GetString(new PromptStringOptions(
