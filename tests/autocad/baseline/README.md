@@ -31,7 +31,7 @@ Use uma cópia descartável dos desenhos e mantenha tudo em
 | `cancel` | cancelamento durante seleção/pergunta | entidades, layer, variáveis e undo preservados |
 
 Repita os casos geométricos com distância automática e, pelo menos, um valor
-fixo configurado por `SFDIST`.
+fixo configurado por `SF_DIST`.
 
 ## Dados a registrar
 

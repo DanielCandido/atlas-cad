@@ -158,7 +158,7 @@
 (defun atlas-bridge-ensure-style
        (style-name
         / request-id root request-temp request-path response-path drawing-id
-          stream payload response success status resolved-name error-code)
+          stream payload response success status resolved-name error-code error-message)
   (setq request-id (atlas--bridge-scalar (ATLAS_NEW_REQUEST_ID)))
   (setq root (atlas--bridge-scalar (ATLAS_BRIDGE_ROOT)))
   (if (not (and request-id root))
@@ -207,7 +207,17 @@
                 )
                 (progn
                   (setq error-code (if response (atlas--json-string-value response "errorCode") "response_missing"))
-                  (princ (strcat "\n[ATLAS] Style ensure failed: " error-code "."))
+                  (setq error-message (if response (atlas--json-string-value response "message") nil))
+                  (princ
+                    (strcat
+                      "\n[ATLAS] Style ensure failed: " error-code
+                      (if (and error-message (/= error-message ""))
+                        (strcat " (" error-message ")")
+                        ""
+                      )
+                      "."
+                    )
+                  )
                   (list (cons 'success nil) (cons 'error error-code))
                 )
               )

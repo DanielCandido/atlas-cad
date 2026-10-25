@@ -1,5 +1,7 @@
 # Catalog builder
 
+[Português (Brasil)](README.pt-BR.md)
+
 The M2 normalization mode reads private MLN files, applies explicit collision
 overrides and writes a validated private JSON intermediate:
 

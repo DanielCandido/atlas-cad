@@ -7,6 +7,22 @@ namespace Atlas.Installer.Tests;
 public sealed class BundleInstallerTests
 {
     [Theory]
+    [InlineData("Desinstalar-AtlasCad", true)]
+    [InlineData("Desinstalar-SteelFlow", true)]
+    [InlineData("Uninstall-SteelFlow", true)]
+    [InlineData("Instalador-SteelFlow", false)]
+    public void DetectsUninstallerByDownloadedFileName(string executableName, bool expected)
+    {
+        Assert.Equal(expected, App.ShouldUninstall([], executableName));
+    }
+
+    [Fact]
+    public void DetectsExplicitUninstallArgument()
+    {
+        Assert.True(App.ShouldUninstall(["--uninstall"], "Instalador-SteelFlow"));
+    }
+
+    [Theory]
     [InlineData("autocad-2026-1-2-plus/AtlasCad.bundle/PackageContents.xml")]
     [InlineData("autocad-2026-1-2-plus\\AtlasCad.bundle\\PackageContents.xml")]
     public void ExtractBundleAcceptsBothZipPathSeparators(string entryName)

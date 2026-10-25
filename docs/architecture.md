@@ -1,5 +1,7 @@
 # Architecture V1
 
+[Português (Brasil)](architecture.pt-BR.md)
+
 ## Runtime path
 
 `STEELFLOW.m4.lsp` keeps the established selection/profile workflow and sends
@@ -7,9 +9,9 @@ opaque request IDs to the version-specific AutoCAD adapter. The adapter owns
 catalog lookup, exact MLINE-style creation, MLINE creation and the M4 license
 gate. A failed bridge or license check preserves the source geometry.
 
-The AutoCAD 2026 adapter currently targets `net10.0-windows`, matching the
-installed AutoCAD 2026.1.2 runtime. The 2022-2024 adapter remains `net48` and is
-pending the M6 installed-version matrix.
+The modern adapter targets both `net8.0-windows` and `net10.0-windows`; the
+2022-2024 adapter targets `net48`. Runtime acceptance outside the installed
+AutoCAD 2026.1.2 environment remains part of the M6 version matrix.
 
 ## Licensing path
 

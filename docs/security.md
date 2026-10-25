@@ -1,5 +1,7 @@
 # Security decisions and limits
 
+[Português (Brasil)](security.pt-BR.md)
+
 - Never ship private LSP/MLN source, server signing private keys, admin API keys
   or plaintext activation codes in source control or the client package.
 - M4 uses ECDSA P-256 signatures; it has no deterministic key generator, XOR

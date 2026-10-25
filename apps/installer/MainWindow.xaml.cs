@@ -73,10 +73,23 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            var errorCode = exception is InstallerException installerException
+                ? installerException.Code
+                : "installer_unexpected_error";
+            var errorMessage = exception.Message + Environment.NewLine + Environment.NewLine +
+                "Código do erro: " + errorCode;
             StepTitle.Text = "Não foi possível concluir";
-            StatusText.Text = exception.Message;
+            StatusText.Text = errorMessage;
             Progress.Visibility = Visibility.Collapsed;
+            CodePanel.Visibility = Visibility.Collapsed;
             InstallButton.IsEnabled = true;
+            CloseButton.Content = "Fechar";
+            MessageBox.Show(
+                this,
+                errorMessage,
+                "Erro na instalação do ATLAS CAD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 

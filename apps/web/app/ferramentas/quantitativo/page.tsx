@@ -1,14 +1,8 @@
 import type { Metadata } from 'next';
-import { ToolFrame } from '@/components/tool-frame';
+import { QuantityDxf } from '@/components/tools/quantity-dxf';
 
 export const metadata: Metadata = { title: 'Quantitativo DXF' };
 
 export default function QuantityPage() {
-  return (
-    <ToolFrame
-      src="/tools/quantitativo.html"
-      title="Quantitativo DXF"
-      description="Extraia quantitativos de concreto, formas e complementares diretamente das pranchas estruturais."
-    />
-  );
+  return <QuantityDxf />;
 }

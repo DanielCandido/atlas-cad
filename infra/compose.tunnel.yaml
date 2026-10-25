@@ -17,6 +17,16 @@ services:
       retries: 20
     networks: [backend]
 
+  library-storage-init:
+    image: postgres:16-alpine
+    user: "0:0"
+    restart: "no"
+    entrypoint: ["sh", "-c"]
+    command: ["chown -R 1654:1654 /library-storage && chmod 0750 /library-storage"]
+    volumes:
+      - library_storage:/library-storage
+    networks: [backend]
+
   api:
     build:
       context: ..
@@ -47,6 +57,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      library-storage-init:
+        condition: service_completed_successfully
     networks: [backend, tunnel]
 
   web:

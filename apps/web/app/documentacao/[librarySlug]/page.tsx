@@ -8,6 +8,7 @@ const legacyDocs = new Set([
   'instalacao',
   'licenciamento',
   'primeiro-uso',
+  'comandos',
   'solucao-de-problemas',
 ]);
 export const dynamic = 'force-dynamic';

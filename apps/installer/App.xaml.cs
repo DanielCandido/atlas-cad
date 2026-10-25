@@ -8,8 +8,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         var executableName = Path.GetFileNameWithoutExtension(Environment.ProcessPath ?? string.Empty);
-        if (e.Args.Any(value => value.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)) ||
-            executableName.StartsWith("Desinstalar-AtlasCad", StringComparison.OrdinalIgnoreCase))
+        if (ShouldUninstall(e.Args, executableName))
         {
             try
             {
@@ -25,4 +24,9 @@ public partial class App : Application
         }
         new MainWindow().Show();
     }
+
+    internal static bool ShouldUninstall(IEnumerable<string> arguments, string executableName) =>
+        arguments.Any(value => value.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)) ||
+        executableName.StartsWith("Desinstalar-", StringComparison.OrdinalIgnoreCase) ||
+        executableName.StartsWith("Uninstall-", StringComparison.OrdinalIgnoreCase);
 }

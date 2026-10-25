@@ -190,6 +190,8 @@ public sealed partial class LibraryStore(NpgsqlDataSource dataSource, LibraryOpt
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         { throw new LicenseServerException("release_version_conflict", "Esta versao ja foi enviada.", 409); }
+        catch (UnauthorizedAccessException)
+        { throw new LicenseServerException("release_storage_unavailable", "O armazenamento de releases nao permite gravacao.", 503); }
         finally
         {
             if (File.Exists(staging)) File.Delete(staging);

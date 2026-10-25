@@ -18,6 +18,7 @@ export default async function LibraryDocsLayout({
       'instalacao',
       'licenciamento',
       'primeiro-uso',
+      'comandos',
       'solucao-de-problemas',
     ].includes(librarySlug)
   )

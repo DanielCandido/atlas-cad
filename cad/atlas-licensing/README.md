@@ -10,7 +10,7 @@ Runtime commands:
 - `ATLAS_LICENSE_ACTIVATE`: activate with a one-time server code.
 - `ATLAS_LICENSE_STATUS`: validate the local entitlement and show expiry.
 - `ATLAS_LICENSE_RENEW`: renew the 72-hour entitlement online.
-- `SFACTIVATE`: STEELFLOW alias for `ATLAS_LICENSE_ACTIVATE`.
+- `SF_ACTIVATE`: SteelFlow command for `ATLAS_LICENSE_ACTIVATE`.
 
 The production API URL is embedded in the signed adapter at release build time.
 `ATLAS_LICENSE_API` can override it only for controlled development tests.

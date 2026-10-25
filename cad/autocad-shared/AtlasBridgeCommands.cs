@@ -332,9 +332,12 @@ public sealed class AtlasBridgeCommands
         {
             response = EnsureStyleResponse.Fail(requestId, "autocad_error", exception.ErrorStatus.ToString());
         }
-        catch (System.Exception)
+        catch (System.Exception exception)
         {
-            response = EnsureStyleResponse.Fail(requestId, "unexpected_error", "Unexpected style bridge failure.");
+            response = EnsureStyleResponse.Fail(
+                requestId,
+                "style_creation_failed",
+                DescribeUnexpectedFailure(exception));
         }
         finally
         {
@@ -395,10 +398,23 @@ public sealed class AtlasBridgeCommands
         EnsureLinetypes(database, definition);
         using var transaction = database.TransactionManager.StartTransaction();
         var dictionary = (DBDictionary)transaction.GetObject(database.MLStyleDictionaryId, OpenMode.ForWrite);
-        using var style = CreateStyle(definition, database, transaction);
-        dictionary.SetAt(definition.Name, style);
-        transaction.AddNewlyCreatedDBObject(style, true);
-        transaction.Commit();
+        // Once added, the transaction owns the DBObject lifetime. Disposing the
+        // style independently can invalidate it before the transaction itself
+        // finishes on some AutoCAD runtimes.
+        var style = CreateStyle(definition, database, transaction);
+        var transactionOwnsStyle = false;
+        try
+        {
+            dictionary.SetAt(definition.Name, style);
+            transaction.AddNewlyCreatedDBObject(style, true);
+            transactionOwnsStyle = true;
+            transaction.Commit();
+        }
+        finally
+        {
+            if (!transactionOwnsStyle)
+                style.Dispose();
+        }
         return EnsureStyleResponse.Ok(commandRequestId, definition.Name, "created");
     }
 
@@ -505,23 +521,34 @@ public sealed class AtlasBridgeCommands
         {
             if (LinetypeExists(database, name))
                 continue;
-            try
-            {
-                database.LoadLineTypeFile(name, "acad.lin");
-            }
-            catch (AcRuntimeException)
-            {
-                try
-                {
-                    database.LoadLineTypeFile(name, "acadiso.lin");
-                }
-                catch (AcRuntimeException)
-                {
-                    throw new BridgeCommandException("linetype_not_found", "Required linetype could not be loaded: " + name);
-                }
-            }
+            if (!TryLoadLinetype(database, name, "acad.lin") &&
+                !TryLoadLinetype(database, name, "acadiso.lin"))
+                throw new BridgeCommandException(
+                    "linetype_not_found",
+                    "Required linetype could not be loaded: " + name);
             if (!LinetypeExists(database, name))
                 throw new BridgeCommandException("linetype_not_found", "Required linetype could not be loaded: " + name);
+        }
+    }
+
+    private static bool TryLoadLinetype(Database database, string name, string fileName)
+    {
+        try
+        {
+            database.LoadLineTypeFile(name, fileName);
+            return LinetypeExists(database, name);
+        }
+        catch (AcRuntimeException)
+        {
+            return LinetypeExists(database, name);
+        }
+        catch (ArgumentException)
+        {
+            return LinetypeExists(database, name);
+        }
+        catch (IOException)
+        {
+            return LinetypeExists(database, name);
         }
     }
 
@@ -549,6 +576,16 @@ public sealed class AtlasBridgeCommands
     }
 
     private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180.0;
+
+    private static string DescribeUnexpectedFailure(System.Exception exception)
+    {
+        var message = (exception.Message ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ').Trim();
+        if (message.Length > 240)
+            message = message.Substring(0, 240);
+        return string.IsNullOrEmpty(message)
+            ? exception.GetType().Name
+            : exception.GetType().Name + ": " + message;
+    }
 
     private static DrawMlineResponse Execute(Document document, string commandRequestId, DrawMlineRequest request)
     {

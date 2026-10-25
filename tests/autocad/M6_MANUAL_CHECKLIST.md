@@ -10,12 +10,14 @@ Artifact: `.tmp/release/AtlasCad-1.0.0-win64/AtlasCad.bundle`.
 3. Confirm `%APPDATA%\Autodesk\ApplicationPlugins\AtlasCad.bundle` exists.
 4. Start AutoCAD normally; do not run `NETLOAD` or `APPLOAD`.
 5. Confirm the command line reports the ATLAS bridge and STEELFLOW v5 loaders.
-6. On a truly clean user profile, run `SFACTIVATE` and then
+6. On a truly clean user profile, run `SF_ACTIVATE` and then
    `ATLAS_INSTALL_CATALOG`; confirm 652 authenticated styles. On an upgrade,
    the existing valid device state and protected cache may be reused.
 7. Run `ATLAS_DIAGNOSTICS`; confirm version `1.0.0`, the correct AutoCAD/runtime,
    valid license status and protected catalog version/key ID.
-8. Run `SFRELOAD` and the established `W150X13` STEELFLOW conversion.
+8. Run `SF_RELOAD` and the established `W150X13` conversion with `SF`.
+9. In a clean DWG, convert `W250X17,9` as PLANTA and confirm that
+   `W250X17_9P` is installed and both source axes become MLINE entities.
 
 ## Upgrade and rollback safety
 

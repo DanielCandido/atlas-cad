@@ -48,8 +48,12 @@ internal sealed class DeviceLicenseInstaller : IDisposable
         using var serverKey = ECDsa.Create(LicenseCrypto.PublicParameters(settings.SigningKeyX, settings.SigningKeyY));
         var validation = LicenseCrypto.ValidateEntitlement(response.EntitlementToken, serverKey, settings.ProductId,
             fingerprint, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        if (!validation.Success || validation.Claims == null || validation.Claims.KeyId != settings.SigningKeyId)
-            throw new InstallerException(validation.ErrorCode, "A licença retornada pelo servidor é inválida.");
+        if (!validation.Success || validation.Claims == null)
+            throw new InstallerException(validation.ErrorCode,
+                $"A licença retornada pelo servidor é inválida ({validation.ErrorCode}). Baixe a versão mais recente do instalador.");
+        if (!string.Equals(validation.Claims.KeyId, settings.SigningKeyId, StringComparison.Ordinal))
+            throw new InstallerException("token_key_id_invalid",
+                "A licença foi emitida por uma chave diferente da esperada. Baixe a versão mais recente do instalador.");
 
         CatalogPackageHeader header;
         using (var stream = File.OpenRead(catalogSource)) header = CatalogPackage.ReadHeader(stream);

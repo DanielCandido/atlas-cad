@@ -182,13 +182,6 @@ export function PortalClient() {
   const canChangePlan = ['active', 'pending_payment', 'past_due', 'suspended'].includes(
     portal.subscriptionStatus,
   );
-  const canCancel = [
-    'pending_checkout',
-    'pending_payment',
-    'active',
-    'past_due',
-    'suspended',
-  ].includes(portal.subscriptionStatus);
   const canOpenPayment =
     Boolean(portal.paymentUrl) &&
     !['active', 'provisioning_failed', 'checkout_cancelled', 'checkout_expired'].includes(
@@ -221,176 +214,177 @@ export function PortalClient() {
         )}
 
         <div className="account-grid">
-          <article className="account-card">
-            <h2>{portal.libraryName}</h2>
-            <p>
-              <strong>{portal.planName}</strong>
-              <br />
-              Pagamento:{' '}
-              {portal.billingType ? billingLabels[portal.billingType] || portal.billingType : '—'}
-              <br />
-              Válida até:{' '}
-              {portal.paidThrough
-                ? new Date(portal.paidThrough).toLocaleDateString('pt-BR')
-                : 'aguardando confirmação'}
-            </p>
-            <p>
-              {explanations[portal.subscriptionStatus] || 'Consulte o status da assinatura abaixo.'}
-            </p>
-
-            {canOpenPayment && portal.paymentUrl && (
-              <a
-                className="button button-primary"
-                href={portal.paymentUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {portal.billingType === 'CREDIT_CARD' ? 'Abrir checkout seguro' : 'Abrir cobrança'}
-              </a>
-            )}
-
-            {canRetry && (
-              <form className="form-stack retry-form" onSubmit={retry}>
-                <input type="hidden" name="librarySlug" value={portal.librarySlug} />
-                <label>
-                  CPF ou CNPJ usado no cadastro
-                  <input name="taxId" inputMode="numeric" required minLength={11} />
-                </label>
-                {portal.billingType === 'CREDIT_CARD' && (
-                  <>
-                    <label>
-                      Telefone com DDD
-                      <input name="phone" type="tel" inputMode="tel" autoComplete="tel" required />
-                    </label>
-                    <label>
-                      CEP
-                      <input
-                        name="postalCode"
-                        inputMode="numeric"
-                        autoComplete="postal-code"
-                        required
-                        minLength={8}
-                      />
-                    </label>
-                    <label>
-                      Logradouro
-                      <input name="address" autoComplete="street-address" required />
-                    </label>
-                    <label>
-                      Número
-                      <input name="addressNumber" autoComplete="address-line2" required />
-                    </label>
-                    <label>
-                      Bairro
-                      <input name="province" required />
-                    </label>
-                  </>
-                )}
-                <button className="button button-primary" disabled={busy}>
-                  {busy ? 'Tentando novamente…' : 'Tentar pagamento novamente'}
-                </button>
-              </form>
-            )}
-
-            {canChangePlan && (
-              <form className="inline-form" onSubmit={plan}>
-                <input type="hidden" name="librarySlug" value={portal.librarySlug} />
-                <select name="planCode" defaultValue={portal.planCode}>
-                  <option value="monthly">Plano mensal</option>
-                  <option value="yearly">Plano anual</option>
-                </select>
-                <button className="button button-outline">Alterar plano</button>
-              </form>
-            )}
-          </article>
-
-          <article className="account-card">
-            <h2>Download</h2>
-            <p>
-              Um único instalador detecta o AutoCAD, vincula sua conta e ativa o plugin
-              automaticamente.
-            </p>
-            {portal.canDownload ? (
-              <div className="form-stack">
-                <a
-                  className="button button-primary"
-                  href={`/api/libraries/${portal.librarySlug}/installer`}
-                >
-                  Baixar instalador único (AutoCAD 2022–2026)
-                </a>
+          <article className="account-card account-wide subscriptions-card">
+            <div className="subscriptions-heading">
+              <div>
+                <span className="eyebrow">SUAS LICENÇAS</span>
+                <h2>Assinaturas</h2>
               </div>
-            ) : (
-              <button className="button button-disabled" disabled>
-                Aguardando pagamento
-              </button>
-            )}
-            <a
-              className="button button-outline"
-              href={`/api/libraries/${portal.librarySlug}/uninstaller`}
-            >
-              Baixar desinstalador
-            </a>
-          </article>
-
-          <article className="account-card account-wide">
-            <h2>Histórico de assinaturas</h2>
+              <Link className="button button-outline" href="/bibliotecas">
+                Adicionar biblioteca
+              </Link>
+            </div>
             <div className="subscription-list">
               {portal.subscriptions.map((subscription) => (
                 <div className="subscription-row" key={subscription.id}>
-                  <div>
-                    <strong>
-                      {subscription.libraryName} · {subscription.planName}
-                    </strong>
-                    <small>
-                      Criada em {new Date(subscription.createdAt).toLocaleDateString('pt-BR')} ·{' '}
-                      {billingLabels[subscription.billingType] || subscription.billingType}
-                    </small>
+                  <div className="subscription-main">
+                    <div className="subscription-title">
+                      <div>
+                        <strong>{subscription.libraryName}</strong>
+                        <small>{subscription.planName}</small>
+                      </div>
+                      <span className={`status status-${subscription.status}`}>
+                        {labels[subscription.status] || subscription.status}
+                      </span>
+                    </div>
+
+                    <div className="subscription-details">
+                      <div>
+                        <span>Pagamento</span>
+                        <strong>
+                          {billingLabels[subscription.billingType] || subscription.billingType}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>Início</span>
+                        <strong>
+                          {new Date(subscription.createdAt).toLocaleDateString('pt-BR')}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>Validade</span>
+                        <strong>
+                          {subscription.paidThrough
+                            ? new Date(subscription.paidThrough).toLocaleDateString('pt-BR')
+                            : '—'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {subscription.isCurrent && (
+                      <p className="subscription-explanation">
+                        {explanations[subscription.status] ||
+                          'Consulte o status da assinatura abaixo.'}
+                      </p>
+                    )}
+
+                    {subscription.isCurrent && canRetry && (
+                      <form className="form-stack retry-form subscription-retry" onSubmit={retry}>
+                        <input type="hidden" name="librarySlug" value={subscription.librarySlug} />
+                        <label>
+                          CPF ou CNPJ usado no cadastro
+                          <input name="taxId" inputMode="numeric" required minLength={11} />
+                        </label>
+                        {portal.billingType === 'CREDIT_CARD' && (
+                          <div className="subscription-retry-fields">
+                            <label>
+                              Telefone com DDD
+                              <input
+                                name="phone"
+                                type="tel"
+                                inputMode="tel"
+                                autoComplete="tel"
+                                required
+                              />
+                            </label>
+                            <label>
+                              CEP
+                              <input
+                                name="postalCode"
+                                inputMode="numeric"
+                                autoComplete="postal-code"
+                                required
+                                minLength={8}
+                              />
+                            </label>
+                            <label>
+                              Logradouro
+                              <input name="address" autoComplete="street-address" required />
+                            </label>
+                            <label>
+                              Número
+                              <input name="addressNumber" autoComplete="address-line2" required />
+                            </label>
+                            <label>
+                              Bairro
+                              <input name="province" required />
+                            </label>
+                          </div>
+                        )}
+                        <button className="button button-primary" disabled={busy}>
+                          {busy ? 'Tentando novamente…' : 'Tentar pagamento novamente'}
+                        </button>
+                      </form>
+                    )}
+
+                    {subscription.isCurrent && portal.machineFingerprint && (
+                      <div className="subscription-device">
+                        <div>
+                          <span>Computador ativado</span>
+                          <strong>{portal.machineFingerprint.slice(0, 16)}…</strong>
+                        </div>
+                        <button className="danger-link" type="button" onClick={deactivate}>
+                          Desativar computador
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <span className={`status status-${subscription.status}`}>
-                    {labels[subscription.status] || subscription.status}
-                  </span>
-                  {subscription.status === 'active' && (
-                    <a
-                      className="text-link"
-                      href={`/api/libraries/${subscription.librarySlug}/installer`}
-                    >
-                      Baixar
-                    </a>
-                  )}
-                  {!['cancelled', 'replaced'].includes(subscription.status) && (
-                    <button
-                      className="danger-link"
-                      onClick={() => void cancel(subscription.librarySlug)}
-                    >
-                      Cancelar
-                    </button>
-                  )}
+
+                  <div className="subscription-actions">
+                    {subscription.status === 'active' && (
+                      <>
+                        <a
+                          className="button button-primary"
+                          href={`/api/libraries/${subscription.librarySlug}/installer`}
+                        >
+                          Baixar instalador
+                        </a>
+                        <a
+                          className="button button-outline"
+                          href={`/api/libraries/${subscription.librarySlug}/uninstaller`}
+                        >
+                          Desinstalador
+                        </a>
+                      </>
+                    )}
+                    {subscription.isCurrent && canOpenPayment && portal.paymentUrl && (
+                      <a
+                        className="button button-primary"
+                        href={portal.paymentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {portal.billingType === 'CREDIT_CARD' ? 'Abrir checkout' : 'Abrir cobrança'}
+                      </a>
+                    )}
+                    {subscription.isCurrent && canChangePlan && (
+                      <form className="subscription-plan" onSubmit={plan}>
+                        <input type="hidden" name="librarySlug" value={subscription.librarySlug} />
+                        <select
+                          name="planCode"
+                          defaultValue={subscription.planCode}
+                          aria-label="Plano"
+                        >
+                          <option value="monthly">Plano mensal</option>
+                          <option value="yearly">Plano anual</option>
+                        </select>
+                        <button className="button button-outline">Alterar plano</button>
+                      </form>
+                    )}
+                    {!['cancelled', 'replaced'].includes(subscription.status) && (
+                      <button
+                        className="danger-link"
+                        onClick={() => void cancel(subscription.librarySlug)}
+                      >
+                        Cancelar assinatura
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           </article>
-
-          <article className="account-card account-wide">
-            <h2>Ativar esta máquina</h2>
-            {portal.machineFingerprint && (
-              <div className="notice">
-                <strong>Uma máquina está ativa</strong>
-                <p>Identificador: {portal.machineFingerprint.slice(0, 16)}…</p>
-                <button className="danger-link" type="button" onClick={deactivate}>
-                  Desativar para trocar de máquina
-                </button>
-              </div>
-            )}
-          </article>
         </div>
-        {canCancel && (
-          <button className="danger-link" onClick={() => void cancel()}>
-            Cancelar assinatura
-          </button>
-        )}
-        <Link className="button button-outline" href="/bibliotecas">
-          Adicionar outra biblioteca
-        </Link>
       </div>
     </section>
   );

@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 var licensingOptions = LicensingServerOptions.FromEnvironment(builder.Environment.ContentRootPath);
 var commerceOptions = CommerceOptions.FromEnvironment(builder.Environment.ContentRootPath);
 var libraryOptions = LibraryOptions.FromEnvironment(builder.Environment.ContentRootPath);
+var maximumReleaseRequestBytes = checked(libraryOptions.MaximumUploadBytes + 2L * 1024 * 1024);
 builder.Services.AddSingleton(licensingOptions);
 builder.Services.AddSingleton(commerceOptions);
 builder.Services.AddSingleton(libraryOptions);
@@ -50,11 +51,26 @@ builder.Services.AddRateLimiter(options =>
 var app = builder.Build();
 app.Use(async (context, next) =>
 {
+    if (IsReleaseUpload(context.Request))
+    {
+        var requestSize = context.Features.Get<IHttpMaxRequestBodySizeFeature>();
+        if (requestSize is { IsReadOnly: false }) requestSize.MaxRequestBodySize = maximumReleaseRequestBytes;
+    }
+
     try { await next(); }
     catch (LicenseServerException exception)
     {
         context.Response.StatusCode = exception.StatusCode;
         await context.Response.WriteAsJsonAsync(new LicenseApiError { ErrorCode = exception.Code, Message = exception.Message });
+    }
+    catch (BadHttpRequestException exception) when (exception.StatusCode == StatusCodes.Status413PayloadTooLarge)
+    {
+        context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+        await context.Response.WriteAsJsonAsync(new LicenseApiError
+        {
+            ErrorCode = "release_file_too_large",
+            Message = $"O instalador excede o limite de {libraryOptions.MaximumUploadBytes / (1024 * 1024)} MB."
+        });
     }
 });
 app.UseRateLimiter();
@@ -409,6 +425,11 @@ static bool AdminKeyMatches(HttpContext context, string expected)
     var right = System.Text.Encoding.UTF8.GetBytes(expected);
     return left.Length == right.Length && CryptographicOperations.FixedTimeEquals(left, right);
 }
+
+static bool IsReleaseUpload(HttpRequest request) =>
+    HttpMethods.IsPost(request.Method) &&
+    request.Path.StartsWithSegments("/api/v1/admin/libraries", StringComparison.OrdinalIgnoreCase) &&
+    request.Path.Value?.EndsWith("/releases", StringComparison.OrdinalIgnoreCase) == true;
 
 static bool WebhookTokenMatches(HttpContext context, string expected)
 {
