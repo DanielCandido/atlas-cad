@@ -113,6 +113,46 @@ public sealed class BridgeContractTests
     }
 
     [Fact]
+    public void StyleRequestJsonRoundTripsUnicodeDrawingIdentity()
+    {
+        var original = new EnsureStyleRequest
+        {
+            ProtocolVersion = BridgeProtocol.CurrentVersion,
+            RequestId = BridgeProtocol.NewRequestId(),
+            ExpectedDrawingIdentity = @"C:\Users\João\Projetos\Estrutura metálica.dwg",
+            StyleName = "W150X13_CORTE"
+        };
+
+        using var stream = new MemoryStream();
+        BridgeJson.WriteEnsureStyleRequest(stream, original);
+        stream.Position = 0;
+
+        var result = BridgeJson.ReadEnsureStyleRequest(stream);
+
+        Assert.Equal(original.ExpectedDrawingIdentity, result.ExpectedDrawingIdentity);
+        Assert.Equal(original.StyleName, result.StyleName);
+        Assert.Empty(EnsureStyleRequestValidator.Validate(result));
+    }
+
+    [Fact]
+    public void StyleRequestAcceptsLegacyWindows1252DrawingIdentity()
+    {
+        var requestId = BridgeProtocol.NewRequestId();
+        var json =
+            "{\"protocolVersion\":1," +
+            $"\"requestId\":\"{requestId}\"," +
+            "\"expectedDrawingIdentity\":\"C:\\\\Users\\\\João\\\\Instalação\\\\estrutura.dwg\"," +
+            "\"styleName\":\"W150X13_CORTE\"}";
+        using var stream = new MemoryStream(Encoding.Latin1.GetBytes(json));
+
+        var result = BridgeJson.ReadEnsureStyleRequest(stream);
+
+        Assert.Equal(@"C:\Users\João\Instalação\estrutura.dwg", result.ExpectedDrawingIdentity);
+        Assert.Equal("W150X13_CORTE", result.StyleName);
+        Assert.Empty(EnsureStyleRequestValidator.Validate(result));
+    }
+
+    [Fact]
     public void RejectsAmbiguousStyleSource()
     {
         var request = new EnsureStyleRequest

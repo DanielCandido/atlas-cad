@@ -60,7 +60,10 @@
 )
 
 (defun atlas--read-file (path / stream line output)
-  (setq stream (open path "r") output "")
+  ;; Bridge JSON is always UTF-8. Without the explicit encoding AutoLISP uses
+  ;; the legacy Windows code page, which corrupts drawing paths containing
+  ;; characters such as ã/ç before the .NET serializer reads the request.
+  (setq stream (open path "r" "utf8") output "")
   (if stream
     (progn
       (while (setq line (read-line stream))
@@ -117,7 +120,7 @@
 
       (if (findfile request-temp) (vl-file-delete request-temp))
       (if (findfile response-path) (vl-file-delete response-path))
-      (setq stream (open request-temp "w"))
+      (setq stream (open request-temp "w" "utf8"))
       (if (not stream)
         (progn (princ "\n[ATLAS] Could not create request payload.") nil)
         (progn
@@ -178,7 +181,7 @@
       )
       (if (findfile request-temp) (vl-file-delete request-temp))
       (if (findfile response-path) (vl-file-delete response-path))
-      (setq stream (open request-temp "w"))
+      (setq stream (open request-temp "w" "utf8"))
       (if (not stream)
         (progn (princ "\n[ATLAS] Could not create style request payload.") nil)
         (progn
@@ -325,7 +328,7 @@
       )
       (if (findfile request-temp) (vl-file-delete request-temp))
       (if (findfile response-path) (vl-file-delete response-path))
-      (setq stream (open request-temp "w"))
+      (setq stream (open request-temp "w" "utf8"))
       (if (not stream)
         (princ "\n[ATLAS] Could not create style request payload.")
         (progn

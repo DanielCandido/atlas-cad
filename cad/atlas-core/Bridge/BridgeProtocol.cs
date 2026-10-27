@@ -262,13 +262,7 @@ public static class BridgeJson
 {
     public static DrawMlineRequest ReadRequest(Stream input)
     {
-        if (input == null) throw new ArgumentNullException(nameof(input));
-        if (input.CanSeek && input.Length > BridgeProtocol.MaximumRequestBytes)
-            throw new SerializationException("Request payload exceeds the size limit.");
-
-        var serializer = new DataContractJsonSerializer(typeof(DrawMlineRequest));
-        return (DrawMlineRequest)(serializer.ReadObject(input) ??
-            throw new SerializationException("Request payload is empty."));
+        return (DrawMlineRequest)ReadRequestPayload(input, typeof(DrawMlineRequest));
     }
 
     public static void WriteRequest(Stream output, DrawMlineRequest request) =>
@@ -287,12 +281,7 @@ public static class BridgeJson
 
     public static EnsureStyleRequest ReadEnsureStyleRequest(Stream input)
     {
-        if (input == null) throw new ArgumentNullException(nameof(input));
-        if (input.CanSeek && input.Length > BridgeProtocol.MaximumRequestBytes)
-            throw new SerializationException("Request payload exceeds the size limit.");
-        var serializer = new DataContractJsonSerializer(typeof(EnsureStyleRequest));
-        return (EnsureStyleRequest)(serializer.ReadObject(input) ??
-            throw new SerializationException("Request payload is empty."));
+        return (EnsureStyleRequest)ReadRequestPayload(input, typeof(EnsureStyleRequest));
     }
 
     public static void WriteEnsureStyleRequest(Stream output, EnsureStyleRequest request) =>
@@ -321,5 +310,45 @@ public static class BridgeJson
         if (output == null) throw new ArgumentNullException(nameof(output));
         if (value == null) throw new ArgumentNullException(nameof(value));
         new DataContractJsonSerializer(type).WriteObject(output, value);
+    }
+
+    private static object ReadRequestPayload(Stream input, Type type)
+    {
+        if (input == null) throw new ArgumentNullException(nameof(input));
+        if (input.CanSeek && input.Length > BridgeProtocol.MaximumRequestBytes)
+            throw new SerializationException("Request payload exceeds the size limit.");
+
+        using var raw = new MemoryStream();
+        input.CopyTo(raw);
+        if (raw.Length == 0)
+            throw new SerializationException("Request payload is empty.");
+        if (raw.Length > BridgeProtocol.MaximumRequestBytes)
+            throw new SerializationException("Request payload exceeds the size limit.");
+
+        string json;
+        try
+        {
+            json = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true)
+                .GetString(raw.ToArray());
+        }
+        catch (DecoderFallbackException)
+        {
+            json = Windows1252().GetString(raw.ToArray());
+        }
+
+        using var normalized = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+        var serializer = new DataContractJsonSerializer(type);
+        return serializer.ReadObject(normalized) ??
+            throw new SerializationException("Request payload is empty.");
+    }
+
+    private static Encoding Windows1252()
+    {
+#if NETFRAMEWORK
+        return Encoding.GetEncoding(1252, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+#else
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        return Encoding.GetEncoding(1252, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+#endif
     }
 }

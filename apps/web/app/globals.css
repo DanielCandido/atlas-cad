@@ -2507,24 +2507,40 @@ textarea:focus-visible {
 .subscriptions-card {
   padding: 0;
   overflow: hidden;
+  border-color: #d6e0ef;
+  box-shadow:
+    0 2px 4px rgba(15, 23, 42, 0.03),
+    0 18px 45px rgba(37, 99, 235, 0.07);
 }
 .subscriptions-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 25px 28px;
+  padding: 28px 32px;
   border-bottom: 1px solid var(--line);
+  background: linear-gradient(135deg, #ffffff 60%, #f5f8ff);
 }
 .subscriptions-heading h2 {
   margin: 5px 0 0;
+  font-size: 22px;
+}
+.subscriptions-heading p {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.subscriptions-heading .button > span {
+  color: var(--blue);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1;
 }
 .subscriptions-card .subscription-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-columns: minmax(0, 1fr) 246px;
   align-items: start;
-  gap: 28px;
-  padding: 26px 28px;
+  gap: 32px;
+  padding: 32px;
 }
 .subscription-main {
   min-width: 0;
@@ -2537,18 +2553,48 @@ textarea:focus-visible {
 }
 .subscription-title strong {
   display: block;
-  font-size: 17px;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+.subscription-product {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.subscription-product-mark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #bdd0f4;
+  border-radius: 11px;
+  color: var(--blue);
+  background: linear-gradient(145deg, #f7faff, #e9f0ff);
+  font:
+    700 11px 'JetBrains Mono',
+    monospace;
+  letter-spacing: 0.04em;
+}
+.subscription-title .status {
+  margin-top: 7px;
+}
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
 }
 .subscription-details {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 20px;
+  margin-top: 24px;
 }
 .subscription-details > div {
-  padding: 12px 14px;
+  padding: 14px 15px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: #f8faff;
 }
 .subscription-details span,
@@ -2563,19 +2609,64 @@ textarea:focus-visible {
 }
 .subscription-details strong,
 .subscription-device strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 .subscription-explanation {
-  margin: 18px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 20px 0 0;
+  font-size: 13px;
+}
+.subscription-explanation-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #087a55;
+  background: #e8f7f1;
+  font-size: 11px;
+  font-weight: 800;
 }
 .subscription-actions {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #f8faff;
 }
 .subscription-actions .button {
   width: 100%;
   text-align: center;
+}
+.subscription-action-group {
+  display: grid;
+  gap: 9px;
+}
+.subscription-action-group + .subscription-action-group {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.subscription-action-label {
+  color: #718096;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.subscription-text-action {
+  padding: 3px;
+  color: #42536a;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+}
+.subscription-text-action:hover {
+  color: var(--blue);
 }
 .subscription-plan {
   display: grid;
@@ -2594,9 +2685,30 @@ textarea:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px dashed var(--line-strong);
+  margin-top: 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcff;
+}
+.subscription-device-info {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.subscription-device-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  color: #526b8e;
+  background: #edf2fa;
+}
+.subscription-device-info > div {
+  min-width: 0;
 }
 .subscription-retry-fields {
   display: grid;
@@ -2609,6 +2721,10 @@ textarea:focus-visible {
   color: var(--red);
   cursor: pointer;
   font-size: 12px;
+}
+.subscription-actions > .danger-link {
+  align-self: center;
+  padding: 2px 4px;
 }
 .pairing-code,
 .activation-code strong {
@@ -3186,12 +3302,24 @@ textarea:focus-visible {
   .subscriptions-card .subscription-row {
     display: grid;
     grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 24px 20px;
   }
   .subscriptions-heading,
   .subscription-title,
   .subscription-device {
     align-items: flex-start;
     flex-direction: column;
+  }
+  .subscriptions-heading {
+    padding: 24px 20px;
+  }
+  .subscriptions-heading .button,
+  .subscription-actions {
+    width: 100%;
+  }
+  .subscription-device .danger-link {
+    padding-left: 47px;
   }
   .subscription-details,
   .subscription-retry-fields {

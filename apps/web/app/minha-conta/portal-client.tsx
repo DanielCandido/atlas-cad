@@ -219,8 +219,10 @@ export function PortalClient() {
               <div>
                 <span className="eyebrow">SUAS LICENÇAS</span>
                 <h2>Assinaturas</h2>
+                <p>Gerencie suas licenças, instalações e formas de cobrança.</p>
               </div>
               <Link className="button button-outline" href="/bibliotecas">
+                <span aria-hidden="true">+</span>
                 Adicionar biblioteca
               </Link>
             </div>
@@ -229,11 +231,17 @@ export function PortalClient() {
                 <div className="subscription-row" key={subscription.id}>
                   <div className="subscription-main">
                     <div className="subscription-title">
-                      <div>
-                        <strong>{subscription.libraryName}</strong>
-                        <small>{subscription.planName}</small>
+                      <div className="subscription-product">
+                        <span className="subscription-product-mark" aria-hidden="true">
+                          {subscription.libraryName.slice(0, 2).toUpperCase()}
+                        </span>
+                        <div>
+                          <strong>{subscription.libraryName}</strong>
+                          <small>{subscription.planName}</small>
+                        </div>
                       </div>
                       <span className={`status status-${subscription.status}`}>
+                        <span className="status-dot" aria-hidden="true" />
                         {labels[subscription.status] || subscription.status}
                       </span>
                     </div>
@@ -263,6 +271,9 @@ export function PortalClient() {
 
                     {subscription.isCurrent && (
                       <p className="subscription-explanation">
+                        <span className="subscription-explanation-icon" aria-hidden="true">
+                          {subscription.status === 'active' ? '✓' : 'i'}
+                        </span>
                         {explanations[subscription.status] ||
                           'Consulte o status da assinatura abaixo.'}
                       </p>
@@ -319,9 +330,22 @@ export function PortalClient() {
 
                     {subscription.isCurrent && portal.machineFingerprint && (
                       <div className="subscription-device">
-                        <div>
-                          <span>Computador ativado</span>
-                          <strong>{portal.machineFingerprint.slice(0, 16)}…</strong>
+                        <div className="subscription-device-info">
+                          <span className="subscription-device-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                              <path
+                                d="M4 5.5h16v11H4zM9 20h6M12 16.5V20"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </span>
+                          <div>
+                            <span>Computador ativado</span>
+                            <strong>{portal.machineFingerprint.slice(0, 16)}…</strong>
+                          </div>
                         </div>
                         <button className="danger-link" type="button" onClick={deactivate}>
                           Desativar computador
@@ -332,20 +356,36 @@ export function PortalClient() {
 
                   <div className="subscription-actions">
                     {subscription.status === 'active' && (
-                      <>
+                      <div className="subscription-action-group">
+                        <span className="subscription-action-label">Instalação</span>
                         <a
                           className="button button-primary"
                           href={`/api/libraries/${subscription.librarySlug}/installer`}
                         >
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="17"
+                            height="17"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
                           Baixar instalador
                         </a>
                         <a
-                          className="button button-outline"
+                          className="subscription-text-action"
                           href={`/api/libraries/${subscription.librarySlug}/uninstaller`}
                         >
                           Desinstalador
                         </a>
-                      </>
+                      </div>
                     )}
                     {subscription.isCurrent && canOpenPayment && portal.paymentUrl && (
                       <a
@@ -358,18 +398,27 @@ export function PortalClient() {
                       </a>
                     )}
                     {subscription.isCurrent && canChangePlan && (
-                      <form className="subscription-plan" onSubmit={plan}>
-                        <input type="hidden" name="librarySlug" value={subscription.librarySlug} />
-                        <select
-                          name="planCode"
-                          defaultValue={subscription.planCode}
-                          aria-label="Plano"
-                        >
-                          <option value="monthly">Plano mensal</option>
-                          <option value="yearly">Plano anual</option>
-                        </select>
-                        <button className="button button-outline">Alterar plano</button>
-                      </form>
+                      <div className="subscription-action-group subscription-plan-group">
+                        <span className="subscription-action-label">Plano e cobrança</span>
+                        <form className="subscription-plan" onSubmit={plan}>
+                          <input
+                            type="hidden"
+                            name="librarySlug"
+                            value={subscription.librarySlug}
+                          />
+                          <select
+                            name="planCode"
+                            defaultValue={subscription.planCode}
+                            aria-label="Plano"
+                          >
+                            <option value="monthly">Plano mensal</option>
+                            <option value="yearly">Plano anual</option>
+                          </select>
+                          <button className="button button-outline" type="submit">
+                            Alterar plano
+                          </button>
+                        </form>
+                      </div>
                     )}
                     {!['cancelled', 'replaced'].includes(subscription.status) && (
                       <button
