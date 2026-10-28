@@ -2,17 +2,40 @@
 
 [English](README.md)
 
-Plugin de automação para AutoCAD que converte eixos de perfis em entidades
-LINE, ARC ou LWPOLYLINE para geometrias MLINE baseadas em catálogo. O fluxo do
-AutoCAD 2026 inclui licenciamento por dispositivo, autorização offline por 72
-horas e catálogo de estilos criptografado e autenticado.
+O ATLAS CAD é um hub de bibliotecas e ferramentas para AutoCAD. A plataforma
+reúne automações especializadas que reduzem tarefas repetitivas no dia a dia de
+engenheiros, projetistas e desenhistas, com catálogo, documentação,
+licenciamento, instalação e atualizações centralizados em uma única conta.
+
+O SteelFlow é a primeira biblioteca de referência do ecossistema. Ele converte
+eixos de perfis representados por LINE, ARC ou LWPOLYLINE em geometrias MLINE
+baseadas em catálogo. A arquitetura comercial e técnica foi projetada para
+receber outras bibliotecas independentes, inclusive soluções que não dependam
+de MLINE ou de catálogos MLN.
+
+## Visão do produto
+
+- **Hub, não plugin único:** cada biblioteca resolve uma etapa específica do
+  fluxo de trabalho no AutoCAD.
+- **Descoberta centralizada:** usuários encontram, comparam e assinam
+  bibliotecas pelo marketplace web.
+- **Uma conta:** assinaturas, cobranças, downloads, dispositivos e licenças são
+  administrados na mesma área do cliente.
+- **Experiência guiada:** cada biblioteca pode oferecer documentação própria,
+  instalador, desinstalador, versões e compatibilidade declarada.
+- **Arquitetura extensível:** novas bibliotecas devem coexistir sem substituir
+  arquivos, licenças ou configurações de outras soluções instaladas.
 
 ## Situação atual
 
-- M0–M5 aceitos no AutoCAD 2026.1.2 ou posterior.
+- O SteelFlow é a primeira biblioteca publicada e o caso de referência atual.
+- M0–M5 foram aceitos no AutoCAD 2026.1.2 ou posterior.
 - M6 gera os payloads net48, .NET 8 e .NET 10 em um instalador unificado.
 - O aceite em runtime do AutoCAD 2022–2025 ainda depende de instalações
   autorizadas; gerar o build não equivale a validar sua execução.
+- A camada web já suporta catálogo, documentação, checkout, assinaturas e
+  administração de múltiplas bibliotecas; a generalização completa do pipeline
+  de build está descrita no plano de automação.
 
 ## Pré-requisitos de desenvolvimento
 
@@ -55,4 +78,3 @@ Windows, consulte o [guia do DBeaver](docs/DBEAVER_PODMAN.md).
 Nunca versione ou distribua fontes LSP/MLN privadas, catálogo JSON em texto
 claro, estado de ativação, chaves privadas de assinatura ou key rings de
 catálogo.
-

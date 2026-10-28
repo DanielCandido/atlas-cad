@@ -1,4 +1,5 @@
 import Link from 'next/link';
+
 export function ArrowLink({
   href,
   children,
@@ -11,18 +12,20 @@ export function ArrowLink({
   return (
     <Link href={href} className={'button ' + (secondary ? 'button-outline' : 'button-primary')}>
       {children}
-      <span aria-hidden>↗</span>
+      <span aria-hidden="true">→</span>
     </Link>
   );
 }
+
 export function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
     <span className="eyebrow">
-      <span className="eyebrow-dot" />
+      <span className="eyebrow-dot" aria-hidden="true" />
       {children}
     </span>
   );
 }
+
 export function CadVisual() {
   return (
     <div
@@ -35,7 +38,7 @@ export function CadVisual() {
         <span />
         <span />
         <span className="cad-file">ATLAS / MLINE VIEWER</span>
-        <span className="cad-live">● LIVE PREVIEW</span>
+        <span className="cad-live">LIVE PREVIEW</span>
       </div>
       <div className="cad-grid">
         <svg viewBox="0 0 660 370" className="cad-svg" aria-hidden="true">

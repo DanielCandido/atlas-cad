@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { SiteChrome } from '@/components/site-chrome';
 import './globals.css';
+import './hallmark.css';
 
 export const metadata: Metadata = {
   title: {

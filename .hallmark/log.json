@@ -1,0 +1,22 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "site",
+  "shape": "showcase-index-offer",
+  "theme": "design-md",
+  "axes": "left-biased, restrained, product-led",
+  "hero": "Stage home; Banner catalog; Counter library",
+  "nav": "existing product bar",
+  "footer": "existing index columns",
+  "imagery": "user video 1",
+  "photos": [],
+  "entry": "video-led",
+  "fingerprint": "stage|index|rows|band|left|product",
+  "sections": "home: hero, figures, product index, workflow rows, close; catalog: banner, index, guide, close; library: offer, description, capability rows, requirements, close",
+  "signature": "SteelFlow demo video",
+  "waived": [],
+  "prompt": "Professional ATLAS CAD home and library redesign with SteelFlow video",
+  "date": "2026-10-27"
+ }
+]

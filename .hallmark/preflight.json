@@ -1,0 +1,21 @@
+{
+  "scanned": "2026-10-27",
+  "findings": {
+    "fonts": "Inter for interface text and JetBrains Mono for code and measurements (DESIGN.md typography)",
+    "palette": "Locked blueprint cobalt, structural navy, emerald status, and drafting neutrals (DESIGN.md colors)",
+    "motion": "CSS transitions with an existing reduced-motion fallback (apps/web/app/globals.css)",
+    "spacing": "Locked 8px rhythm with a 4px half-step (DESIGN.md layout and spacing)",
+    "framework": "Next.js 15 App Router with React 19 and project CSS (apps/web/package.json)"
+  },
+  "preserve": [
+    "DESIGN.md system",
+    "existing section sequence",
+    "all routes, links, data calls, and checkout wiring"
+  ],
+  "introduce": [
+    "professional showcase composition",
+    "the supplied SteelFlow video as the signature",
+    "restrained interaction motion",
+    "Hallmark accessibility and anti-template gates"
+  ]
+}

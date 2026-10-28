@@ -11,8 +11,11 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <a className="skip-link" href="#main-content">
+        Pular para o conteúdo
+      </a>
       <Header />
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
       <Footer />
     </>
   );

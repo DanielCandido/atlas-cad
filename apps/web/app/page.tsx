@@ -1,156 +1,113 @@
 import Link from 'next/link';
-import { ArrowLink, CadVisual, Eyebrow } from '@/components/ui';
+import { ProductVideo } from '@/components/product-video';
 
 export default function Home() {
   return (
-    <>
-      <section className="hero">
-        <div className="container hero-grid">
-          <div>
-            <Eyebrow>LISP · .NET · ARX · AutoCAD 2021–2026</Eyebrow>
-            <h1>
-              Automatize horas de desenho repetitivo <span>em segundos.</span>
-            </h1>
-            <p className="lead">
-              Bibliotecas prontas de rotinas AutoLISP, scripts DCL e plugins .NET para arquitetos e
-              engenheiros. Zero retrabalho, precisão dimensional absoluta.
+    <div className="hm-page hm-home">
+      <section className="hm-hero hm-home-hero">
+        <div className="hm-container hm-hero__grid">
+          <div className="hm-hero__copy">
+            <h1>Automação que trabalha dentro do AutoCAD.</h1>
+            <p>
+              Bibliotecas para engenheiros e desenhistas produzirem com mais precisão e menos
+              repetição.
             </p>
-            <div className="hero-actions">
-              <ArrowLink href="/bibliotecas">Explorar bibliotecas</ArrowLink>
-              <ArrowLink href="/documentacao" secondary>
-                Ver documentação
-              </ArrowLink>
-            </div>
-            <div className="hero-note">
-              <span className="pulse" /> Bibliotecas verificadas e atualizadas continuamente
+            <div className="hm-actions">
+              <Link className="hm-button hm-button--primary" href="/bibliotecas">
+                Explorar bibliotecas
+              </Link>
+              <Link className="hm-button hm-button--quiet" href="/documentacao">
+                Consultar documentação
+              </Link>
             </div>
           </div>
-          <CadVisual />
+          <ProductVideo />
         </div>
       </section>
 
-      <div className="container metrics-strip" aria-label="Indicadores da plataforma">
-        <div className="metric-card">
-          <span className="metric-icon">↗</span>
+      <section className="hm-proof" aria-label="Indicadores informados pelo projeto">
+        <dl className="hm-container hm-figures">
           <div>
-            <strong>+45.000h</strong>
-            <small>economizadas em pranchas técnicas</small>
+            <dt>Tempo economizado</dt>
+            <dd>+45.000 horas</dd>
+            <p>em pranchas técnicas</p>
           </div>
-        </div>
-        <div className="metric-card">
-          <span className="metric-icon">✓</span>
           <div>
-            <strong>99,8%</strong>
-            <small>de precisão conforme ABNT</small>
+            <dt>Precisão declarada</dt>
+            <dd>99,8%</dd>
+            <p>em rotinas conforme a ABNT</p>
           </div>
-        </div>
-        <div className="metric-card">
-          <span className="metric-icon">▣</span>
           <div>
-            <strong>2021–2026</strong>
-            <small>suporte nativo a versões AutoCAD</small>
+            <dt>Compatibilidade</dt>
+            <dd>6 versões</dd>
+            <p>do AutoCAD, de 2021 a 2026</p>
           </div>
-        </div>
-      </div>
+        </dl>
+      </section>
 
-      <section className="section section-dark">
-        <div className="container">
-          <div className="section-heading">
-            <Eyebrow>Catálogo verificado</Eyebrow>
-            <h2>Bibliotecas para produzir melhor.</h2>
-            <p>
-              Ferramentas especializadas para eliminar etapas manuais sem alterar seu fluxo de
-              engenharia.
-            </p>
+      <section className="hm-section hm-catalog-showcase">
+        <div className="hm-container">
+          <div className="hm-section-head hm-section-head--split">
+            <h2>Uma biblioteca para cada processo.</h2>
+            <p>Comece pelo trabalho que mais se repete no seu projeto.</p>
           </div>
-          <div className="library-grid">
-            <Link href="/bibliotecas/steelflow" className="library-card">
-              <div className="library-art">
-                <span className="library-monogram">
-                  S<span>TEELFLOW</span>
-                </span>
-                <span className="library-art-detail">ATLAS / 001</span>
-              </div>
-              <div className="library-content">
-                <span className="chip">PUBLICADA · AUTOCAD</span>
-                <h2>
-                  SteelFlow <span>→</span>
-                </h2>
-                <p>
-                  Automação técnica para perfis metálicos, geometrias e padronização de desenhos.
-                </p>
-                <div className="library-bottom">
-                  AutoCAD · Windows <span>Ver detalhes →</span>
-                </div>
-              </div>
+
+          <div className="hm-product-index">
+            <Link className="hm-product-row hm-product-row--lead" href="/bibliotecas/steelflow">
+              <span className="hm-product-row__mark" aria-hidden="true">
+                SF
+              </span>
+              <span className="hm-product-row__body">
+                <strong>SteelFlow</strong>
+                <span>Perfis metálicos, geometrias e padronização de desenhos.</span>
+              </span>
+              <span className="hm-product-row__action">Conhecer o SteelFlow</span>
             </Link>
-            <Link href="/bibliotecas" className="library-card">
-              <div className="library-art">
-                <span className="library-monogram">+</span>
-                <span className="library-art-detail">CATÁLOGO CAD</span>
-              </div>
-              <div className="library-content">
-                <span className="chip">NOVOS MÓDULOS</span>
-                <h2>
-                  Marketplace <span>→</span>
-                </h2>
-                <p>
-                  Explore todas as bibliotecas publicadas e encontre a automação certa para seu
-                  escritório.
-                </p>
-                <div className="library-bottom">
-                  Licenças flexíveis <span>Explorar catálogo →</span>
-                </div>
-              </div>
+            <Link className="hm-product-row" href="/bibliotecas">
+              <span className="hm-product-row__mark" aria-hidden="true">
+                +
+              </span>
+              <span className="hm-product-row__body">
+                <strong>Catálogo ATLAS CAD</strong>
+                <span>Compare bibliotecas, recursos e planos em uma única conta.</span>
+              </span>
+              <span className="hm-product-row__action">Abrir o catálogo</span>
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="section">
-        <div className="container">
-          <div className="section-heading">
-            <Eyebrow>Engenharia sem atrito</Eyebrow>
-            <h2>Precisão técnica, sem perder o ritmo.</h2>
-            <p>
-              Da instalação à atualização, a plataforma foi desenhada para equipes que dependem do
-              AutoCAD todos os dias.
-            </p>
+      <section className="hm-section hm-workflow">
+        <div className="hm-container hm-workflow__grid">
+          <div className="hm-section-head">
+            <h2>Do download ao desenho.</h2>
+            <p>O hub cuida do entorno para a biblioteca fazer o trabalho técnico.</p>
           </div>
-          <div className="feature-grid">
-            <article className="feature-card">
-              <span className="feature-icon">01</span>
-              <h3>Automação prática</h3>
-              <p>Comandos objetivos dentro do AutoCAD para tarefas que antes consumiam horas.</p>
-            </article>
-            <article className="feature-card">
-              <span className="feature-icon">02</span>
-              <h3>Padronização ABNT</h3>
-              <p>Estilos e regras consistentes para reduzir revisão, retrabalho e divergências.</p>
-            </article>
-            <article className="feature-card">
-              <span className="feature-icon">03</span>
-              <h3>Atualizações contínuas</h3>
-              <p>
-                Compatibilidade acompanhada de documentação clara e novas versões centralizadas.
-              </p>
-            </article>
-          </div>
+          <ol className="hm-workflow__list">
+            <li>
+              <h3>Instalação guiada</h3>
+              <p>Baixe e configure cada biblioteca sem procurar arquivos dispersos.</p>
+            </li>
+            <li>
+              <h3>Padrões consistentes</h3>
+              <p>Reduza revisão e divergências com regras técnicas centralizadas.</p>
+            </li>
+            <li>
+              <h3>Atualização contínua</h3>
+              <p>Acompanhe compatibilidade, documentação e novas versões pelo mesmo hub.</p>
+            </li>
+          </ol>
         </div>
       </section>
 
-      <section className="section section-cta">
-        <div className="container cta-content">
-          <Eyebrow>Seu risco: 14 dias de teste</Eyebrow>
-          <h2>Pronto para acelerar seus projetos?</h2>
-          <p>
-            Conheça as bibliotecas, compare planos e comece com uma conta segura em poucos minutos.
-          </p>
-          <ArrowLink href="/bibliotecas" secondary>
-            Criar conta gratuita
-          </ArrowLink>
+      <section className="hm-close">
+        <div className="hm-container hm-close__grid">
+          <h2>Escolha a próxima tarefa para automatizar.</h2>
+          <Link className="hm-button hm-button--paper" href="/bibliotecas">
+            Ver bibliotecas disponíveis
+          </Link>
         </div>
       </section>
-    </>
+    </div>
   );
 }

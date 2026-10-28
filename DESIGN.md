@@ -148,6 +148,26 @@ spacing:
 
 ## Brand & Style
 
+### Product positioning
+
+ATLAS CAD is the platform and discovery hub, not the name of a single AutoCAD
+plugin. The catalog contains independent libraries focused on specific jobs in
+the daily workflow of engineers, designers, and drafters. SteelFlow is the first
+reference library in this ecosystem.
+
+Product-facing interfaces should reinforce this model:
+
+- lead with the breadth of the hub before highlighting an individual library;
+- treat libraries as products with their own purpose, compatibility, plans,
+  documentation, releases, and installation actions;
+- keep discovery vocabulary consistent: **hub** for the platform,
+  **marketplace/catalog** for browsing, and **library** for each installable
+  solution;
+- present cross-library account management as a core benefit: one account for
+  subscriptions, billing, downloads, licenses, and activated devices;
+- avoid messaging that makes SteelFlow appear to be the whole ATLAS CAD
+  product.
+
 This design system embodies high-precision technical modernism tailored for CAD professionals, computational design engineers, and BIM workflow managers. The personality is disciplined, architectural, and razor-sharp—balancing the rigorous exactness of industrial drafting with the ergonomic fluency of contemporary developer tooling. 
 
 The interface evokes confidence, reliability, and algorithmic speed. Visual noise is strictly eliminated to prioritize dense script metadata, command-line arguments, execution logs, and parametric controls. Subtle drafting conventions—such as hairline geometric grids, precise hairline dividers, and monospaced code blocks—anchor the user in a native CAD environment while maintaining supreme clarity and spatial rhythm.
